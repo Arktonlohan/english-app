@@ -1,0 +1,71 @@
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { User, AuthStatus } from '../types';
+import { authService } from '../services/authService';
+
+interface AuthContextType {
+  user: User | null;
+  status: AuthStatus;
+  login: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string) => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
+  logout: () => Promise<void>;
+  forgotPassword: (email: string) => Promise<void>;
+}
+
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [status, setStatus] = useState<AuthStatus>('loading');
+
+  useEffect(() => {
+    const unsubscribe = authService.onAuthStateChanged((user) => {
+      setUser(user);
+      setStatus(user ? 'authenticated' : 'unauthenticated');
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const login = async (email: string, password: string) => {
+    await authService.login(email, password);
+  };
+
+  const signUp = async (email: string, password: string) => {
+    await authService.signUp(email, password);
+  };
+
+  const loginWithGoogle = async () => {
+    await authService.loginWithGoogle();
+  };
+
+  const logout = async () => {
+    await authService.logout();
+  };
+
+  const forgotPassword = async (email: string) => {
+    await authService.forgotPassword(email);
+  };
+
+  return (
+    <AuthContext.Provider value={{ 
+      user, 
+      status, 
+      login, 
+      signUp, 
+      loginWithGoogle, 
+      logout, 
+      forgotPassword 
+    }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
