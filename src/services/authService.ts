@@ -161,7 +161,8 @@ class AuthService {
         targetLanguage: profile?.target_language || 'English',
         dailyGoal: profile?.daily_goal || 15,
         theme: profile?.theme || 'system',
-        notificationsEnabled: profile?.notifications_enabled ?? true
+        notificationsEnabled: profile?.notifications_enabled ?? true,
+        subtitleSize: profile?.subtitle_size || 'md'
       }
     };
   }
@@ -261,7 +262,8 @@ class AuthService {
         targetLanguage: 'English',
         dailyGoal: 15,
         theme: 'system',
-        notificationsEnabled: true
+        notificationsEnabled: true,
+        subtitleSize: 'md'
       }
     };
 
@@ -308,6 +310,42 @@ class AuthService {
     }
     this.currentUser = null;
     localStorage.removeItem(AUTH_KEY);
+    this.notifyListeners();
+  }
+
+  async updatePreferences(preferences: Partial<User['preferences']>): Promise<void> {
+    if (!this.currentUser) return;
+
+    const newPreferences = {
+      ...this.currentUser.preferences,
+      ...preferences
+    };
+
+    if (isSupabaseConfigured) {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          target_language: newPreferences.targetLanguage,
+          daily_goal: newPreferences.dailyGoal,
+          theme: newPreferences.theme,
+          notifications_enabled: newPreferences.notificationsEnabled,
+          subtitle_size: newPreferences.subtitleSize
+        })
+        .eq('id', this.currentUser.id);
+
+      if (error) throw error;
+    }
+
+    this.currentUser = {
+      ...this.currentUser,
+      preferences: newPreferences
+    };
+
+    if (!isSupabaseConfigured) {
+      this.saveLocalProfile(this.currentUser);
+    }
+
+    localStorage.setItem(AUTH_KEY, JSON.stringify(this.currentUser));
     this.notifyListeners();
   }
 }

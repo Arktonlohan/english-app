@@ -10,6 +10,7 @@ interface AuthContextType {
   loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
   forgotPassword: (email: string) => Promise<void>;
+  updatePreferences: (preferences: Partial<User['preferences']>) => Promise<void>;
   isReady: boolean;
 }
 
@@ -50,6 +51,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await authService.forgotPassword(email);
   };
 
+  const updatePreferences = async (preferences: Partial<User['preferences']>) => {
+    await authService.updatePreferences(preferences);
+  };
+
   return (
     <AuthContext.Provider value={{ 
       user, 
@@ -59,6 +64,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       loginWithGoogle, 
       logout, 
       forgotPassword,
+      updatePreferences,
       isReady
     }}>
       {children}

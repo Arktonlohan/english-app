@@ -96,6 +96,10 @@ export const PronunciationPage: React.FC<PronunciationPageProps> = ({ initialIte
   const startRecording = async () => {
     setMicError(null);
     try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('BrowserNotSupported');
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       
       // Setup audio analysis for visual feedback
@@ -139,9 +143,21 @@ export const PronunciationPage: React.FC<PronunciationPageProps> = ({ initialIte
       timerRef.current = window.setInterval(() => {
         setRecordingTime(prev => prev + 1);
       }, 1000);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to start recording', err);
-      setMicError('Microphone access denied or unavailable. Please check your browser settings.');
+      let errorMessage = 'Microphone access denied or unavailable.';
+      
+      if (err.message === 'BrowserNotSupported') {
+        errorMessage = 'Your browser does not support audio recording. Please try a modern browser like Chrome or Safari.';
+      } else if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        errorMessage = 'Microphone access blocked. Please enable it in your browser settings to practice pronunciation.';
+      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+        errorMessage = 'No microphone found. Please connect a microphone and try again.';
+      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+        errorMessage = 'Microphone is already in use by another application or tab.';
+      }
+      
+      setMicError(errorMessage);
       setRecordingState('error');
     }
   };

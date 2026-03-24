@@ -67,13 +67,14 @@ class SpeechService {
    */
   async getTranscript(speechId: string): Promise<Transcript> {
     // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, 800));
 
     // For mock purposes, we'll return a generated transcript if it's an imported video
     if (speechId.startsWith('yt-')) {
-      // Simulate a 10% chance of transcript being unavailable to test fallbacks
       const random = Math.random();
-      if (random < 0.1) {
+      
+      // Much lower chance of failure in mock mode for better UX
+      if (random < 0.02) {
         return {
           speechId,
           state: 'unavailable',
@@ -81,20 +82,20 @@ class SpeechService {
         };
       }
       
-      // Simulate a 15% chance of returning a mock/simplified transcript
-      if (random < 0.25) {
+      // Small chance of returning a "mock" state transcript
+      if (random < 0.1) {
         return {
           speechId,
           state: 'mock',
           source: 'fallback',
-          sentences: this.generateMockTranscript(speechId).sentences.slice(0, 1) // Just one sentence
+          sentences: this.generateMockTranscript(speechId).sentences
         };
       }
 
       return this.generateMockTranscript(speechId);
     }
 
-    // Curated speeches usually have transcripts
+    // Curated speeches always have transcripts in this mock implementation
     return this.generateMockTranscript(speechId);
   }
 

@@ -199,6 +199,7 @@ export interface User {
     dailyGoal: number;
     theme?: 'light' | 'dark' | 'system';
     notificationsEnabled?: boolean;
+    subtitleSize?: 'sm' | 'md' | 'lg';
   };
 }
 

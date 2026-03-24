@@ -6,6 +6,7 @@ import { Button, Card, Badge } from './UI';
 import { vocabularyService } from '../services/vocabularyService';
 import { progressService } from '../services/progressService';
 import { speechService } from '../services/speechService';
+import { AuthProvider, useAuth } from '../context/AuthContext';
 import { 
   Play, 
   Pause, 
@@ -58,6 +59,8 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
   const [showResumeDialog, setShowResumeDialog] = useState(false);
   const [sessionStartTime] = useState(new Date());
   const [savedWordsCount, setSavedWordsCount] = useState(0);
+  const { user, updatePreferences } = useAuth();
+  const [subtitleSize, setSubtitleSize] = useState<'sm' | 'md' | 'lg'>(user?.preferences?.subtitleSize || 'md');
   
   // Transcript State
   const [transcript, setTranscript] = useState<Transcript | undefined>(speech.transcript);
@@ -375,6 +378,25 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
     }
   };
 
+  const toggleSubtitleSize = () => {
+    const sizes: ('sm' | 'md' | 'lg')[] = ['sm', 'md', 'lg'];
+    const nextSize = sizes[(sizes.indexOf(subtitleSize) + 1) % sizes.length];
+    setSubtitleSize(nextSize);
+    updatePreferences({ subtitleSize: nextSize });
+  };
+
+  const speakWord = (text: string) => {
+    if (!window.speechSynthesis) return;
+    
+    // Cancel any ongoing speech
+    window.speechSynthesis.cancel();
+    
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'en-US'; // Default to English for now
+    utterance.rate = 0.9;
+    window.speechSynthesis.speak(utterance);
+  };
+
   const toggleDifficult = async (sentenceId: string) => {
     const isNowDifficult = await progressService.toggleDifficultSentence(speech.id, sentenceId);
     if (isNowDifficult) {
@@ -478,11 +500,15 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
                 className="absolute inset-x-0 bottom-12 px-12 text-center pointer-events-none"
               >
                 <div className="bg-black/60 backdrop-blur-xl p-8 rounded-[2rem] border border-white/10 inline-block max-w-4xl">
-                  <p className="text-3xl md:text-4xl font-black text-white leading-tight tracking-tight">
+                  <p className={`font-black text-white leading-tight tracking-tight ${
+                    subtitleSize === 'sm' ? 'text-xl' : subtitleSize === 'lg' ? 'text-4xl md:text-5xl' : 'text-3xl md:text-4xl'
+                  }`}>
                     {sentences[activeSentenceIndex].text}
                   </p>
                   {showTranslation && (
-                    <p className="mt-4 text-xl text-white/60 font-medium italic">
+                    <p className={`mt-4 text-white/60 font-medium italic ${
+                      subtitleSize === 'sm' ? 'text-sm' : subtitleSize === 'lg' ? 'text-2xl' : 'text-xl'
+                    }`}>
                       {sentences[activeSentenceIndex].translation}
                     </p>
                   )}
@@ -719,10 +745,11 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
                           key={wIdx}
                           onClick={(e) => handleWordClick(wordObj, e)}
                           className={`
-                            text-3xl md:text-4xl font-black cursor-pointer transition-all duration-300 rounded-2xl px-2 py-1 relative
+                            font-black cursor-pointer transition-all duration-300 rounded-2xl px-2 py-1 relative
                             ${isWordActive 
                               ? 'text-primary' 
                               : 'text-slate-800 hover:bg-slate-100'}
+                            ${subtitleSize === 'sm' ? 'text-xl' : subtitleSize === 'lg' ? 'text-4xl md:text-5xl' : 'text-3xl md:text-4xl'}
                           `}
                         >
                           {isWordActive && (
@@ -811,6 +838,14 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
           >
             <Zap size={16} className={playbackRate < 1 ? 'mb-0.5' : 'mb-0'} />
             <span className="text-[10px] font-black">{playbackRate}x</span>
+          </button>
+
+          <button 
+            onClick={toggleSubtitleSize}
+            className={`w-12 h-12 rounded-full flex flex-col items-center justify-center transition-all ${isFocusMode ? 'text-white/60 hover:bg-white/10' : 'text-slate-600 hover:bg-white/50'}`}
+          >
+            <span className="text-[10px] font-black uppercase">{subtitleSize}</span>
+            <span className="text-[8px] font-bold opacity-50">SIZE</span>
           </button>
           
           <button 
@@ -978,7 +1013,10 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
                   <h3 className="text-5xl font-black text-slate-900 tracking-tight">{selectedWord.text}</h3>
                   <div className="flex items-center gap-4">
                     <span className="text-xl font-bold text-primary font-mono tracking-widest">{selectedWord.ipa || '/.../'}</span>
-                    <button className="w-10 h-10 rounded-2xl bg-primary/5 text-primary flex items-center justify-center hover:bg-primary/10 transition-colors">
+                    <button 
+                      onClick={() => speakWord(selectedWord.text)}
+                      className="w-10 h-10 rounded-2xl bg-primary/5 text-primary flex items-center justify-center hover:bg-primary/10 transition-colors"
+                    >
                       <Volume2 size={18} />
                     </button>
                   </div>

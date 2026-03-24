@@ -30,9 +30,12 @@ import { Card, Button, Badge } from '../components/UI';
 import { isSupabaseConfigured } from '../lib/supabase';
 
 const SettingsPage: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, updatePreferences } = useAuth();
   const [activeTab, setActiveTab] = useState('account');
-  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [soundEnabled, setSoundEnabled] = useState(user?.preferences?.notificationsEnabled ?? true);
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  const languages = ['English', 'Portuguese', 'Spanish', 'French', 'German', 'Italian', 'Chinese', 'Japanese', 'Korean'];
 
   const menuItems = [
     { id: 'account', label: 'Account', icon: User, color: 'text-primary' },
@@ -188,39 +191,96 @@ const SettingsPage: React.FC = () => {
             <div className="space-y-4">
               <h4 className="text-sm font-black text-white/40 uppercase tracking-[0.2em] px-4">Preferences</h4>
               <div className="grid gap-3">
-                {[
-                  { label: 'Dark Mode', value: 'Always On', icon: Moon, toggle: true },
-                  { label: 'Sound Effects', value: 'Enabled', icon: Volume2, toggle: true },
-                  { label: 'Native Language', value: 'English', icon: Globe },
-                  { label: 'Notifications', value: 'Smart Alerts', icon: Bell },
-                ].map((pref) => (
-                  <div key={pref.label} className="flex items-center justify-between p-6 glass-dark rounded-2xl border border-white/5">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-soft-gray">
-                        <pref.icon size={18} />
-                      </div>
-                      <div>
-                        <p className="text-white font-bold">{pref.label}</p>
-                        <p className="text-[10px] font-black text-soft-gray uppercase tracking-widest">{pref.value}</p>
-                      </div>
+                <div className="flex items-center justify-between p-6 glass-dark rounded-2xl border border-white/5">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-soft-gray">
+                      <Moon size={18} />
                     </div>
-                    {pref.toggle ? (
-                      <button 
-                        onClick={() => pref.label === 'Sound Effects' && setSoundEnabled(!soundEnabled)}
-                        className={`w-12 h-6 rounded-full relative transition-colors ${
-                          (pref.label === 'Dark Mode' || (pref.label === 'Sound Effects' && soundEnabled)) ? 'bg-primary shadow-neon' : 'bg-white/10'
+                    <div>
+                      <p className="text-white font-bold">Dark Mode</p>
+                      <p className="text-[10px] font-black text-soft-gray uppercase tracking-widest">Always On</p>
+                    </div>
+                  </div>
+                  <button className="w-12 h-6 rounded-full relative transition-colors bg-primary shadow-neon">
+                    <motion.div animate={{ x: 24 }} className="absolute top-1 w-4 h-4 bg-white rounded-full shadow-sm" />
+                  </button>
+                </div>
+
+                <div className="flex items-center justify-between p-6 glass-dark rounded-2xl border border-white/5">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-soft-gray">
+                      <Volume2 size={18} />
+                    </div>
+                    <div>
+                      <p className="text-white font-bold">Sound Effects</p>
+                      <p className="text-[10px] font-black text-soft-gray uppercase tracking-widest">{soundEnabled ? 'Enabled' : 'Disabled'}</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={async () => {
+                      const newValue = !soundEnabled;
+                      setSoundEnabled(newValue);
+                      await updatePreferences({ notificationsEnabled: newValue });
+                    }}
+                    className={`w-12 h-6 rounded-full relative transition-colors ${soundEnabled ? 'bg-primary shadow-neon' : 'bg-white/10'}`}
+                  >
+                    <motion.div animate={{ x: soundEnabled ? 24 : 4 }} className="absolute top-1 w-4 h-4 bg-white rounded-full shadow-sm" />
+                  </button>
+                </div>
+
+                <div className="p-6 glass-dark rounded-2xl border border-white/5 space-y-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-soft-gray">
+                      <Globe size={18} />
+                    </div>
+                    <div>
+                      <p className="text-white font-bold">Target Language</p>
+                      <p className="text-[10px] font-black text-soft-gray uppercase tracking-widest">For translations</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {languages.map((lang) => (
+                      <button
+                        key={lang}
+                        onClick={() => updatePreferences({ targetLanguage: lang })}
+                        className={`py-2 px-1 rounded-xl text-[10px] font-black uppercase tracking-tighter transition-all border ${
+                          user?.preferences?.targetLanguage === lang 
+                            ? 'bg-primary text-white border-primary shadow-neon' 
+                            : 'bg-white/5 text-soft-gray border-white/10 hover:bg-white/10'
                         }`}
                       >
-                        <motion.div 
-                          animate={{ x: (pref.label === 'Dark Mode' || (pref.label === 'Sound Effects' && soundEnabled)) ? 24 : 4 }}
-                          className="absolute top-1 w-4 h-4 bg-white rounded-full shadow-sm" 
-                        />
+                        {lang}
                       </button>
-                    ) : (
-                      <ChevronRight size={18} className="text-soft-gray" />
-                    )}
+                    ))}
                   </div>
-                ))}
+                </div>
+
+                <div className="p-6 glass-dark rounded-2xl border border-white/5 space-y-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-soft-gray">
+                      <Smartphone size={18} />
+                    </div>
+                    <div>
+                      <p className="text-white font-bold">Default Subtitle Size</p>
+                      <p className="text-[10px] font-black text-soft-gray uppercase tracking-widest">Shadowing Player</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(['sm', 'md', 'lg'] as const).map((size) => (
+                      <button
+                        key={size}
+                        onClick={() => updatePreferences({ subtitleSize: size })}
+                        className={`py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${
+                          (user?.preferences?.subtitleSize || 'md') === size 
+                            ? 'bg-primary text-white border-primary shadow-neon' 
+                            : 'bg-white/5 text-soft-gray border-white/10 hover:bg-white/10'
+                        }`}
+                      >
+                        {size === 'sm' ? 'Small' : size === 'md' ? 'Medium' : 'Large'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           </motion.div>
