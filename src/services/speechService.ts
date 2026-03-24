@@ -69,30 +69,14 @@ class SpeechService {
     // Simulate network delay
     await new Promise(resolve => setTimeout(resolve, 800));
 
-    // For mock purposes, we'll return a generated transcript if it's an imported video
+    // For mock purposes, we'll return unavailable for imported videos by default
+    // This forces the user to choose "Sample Mode" if they want to see the generic transcript
     if (speechId.startsWith('yt-')) {
-      const random = Math.random();
-      
-      // Much lower chance of failure in mock mode for better UX
-      if (random < 0.02) {
-        return {
-          speechId,
-          state: 'unavailable',
-          sentences: []
-        };
-      }
-      
-      // Small chance of returning a "mock" state transcript
-      if (random < 0.1) {
-        return {
-          speechId,
-          state: 'mock',
-          source: 'fallback',
-          sentences: this.generateMockTranscript(speechId).sentences
-        };
-      }
-
-      return this.generateMockTranscript(speechId);
+      return {
+        speechId,
+        state: 'unavailable',
+        sentences: []
+      };
     }
 
     // Curated speeches always have transcripts in this mock implementation
@@ -105,6 +89,7 @@ class SpeechService {
   getReadinessFromTranscript(transcript: Transcript): ContentReadiness {
     switch (transcript.state) {
       case 'available':
+        return 'ready';
       case 'mock':
         return 'ready';
       case 'loading':
@@ -124,8 +109,8 @@ class SpeechService {
   generateMockTranscript(speechId: string): Transcript {
     return {
       speechId,
-      state: 'available',
-      source: 'ai_generated',
+      state: 'mock',
+      source: 'fallback',
       sentences: [
         {
           id: "s1",

@@ -42,7 +42,7 @@ export interface PronunciationPracticeItem {
 }
 
 export type Difficulty = 'Beginner' | 'Intermediate' | 'Advanced';
-export type Category = 'TED' | 'Interviews' | 'Podcasts' | 'Movies' | 'Business';
+export type Category = 'TED Talks' | 'Interviews' | 'Podcasts';
 
 export type TranscriptState = 'available' | 'loading' | 'unavailable' | 'mock' | 'error';
 export type ContentReadiness = 'ready' | 'processing' | 'no_transcript' | 'error';
@@ -195,7 +195,7 @@ export interface User {
     level?: number;
   };
   preferences: {
-    targetLanguage: string;
+    nativeLanguage: string;
     dailyGoal: number;
     theme?: 'light' | 'dark' | 'system';
     notificationsEnabled?: boolean;

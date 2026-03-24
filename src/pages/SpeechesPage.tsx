@@ -21,7 +21,7 @@ export const SpeechesPage: React.FC<SpeechesPageProps> = ({ onSelectSpeech }) =>
     return () => clearTimeout(timer);
   }, [selectedCategory, selectedDifficulty]);
 
-  const categories: (Category | 'All')[] = ['All', 'TED', 'Interviews', 'Podcasts', 'Movies', 'Business'];
+  const categories: (Category | 'All')[] = ['All', 'TED Talks', 'Interviews', 'Podcasts'];
   const difficulties: (Difficulty | 'All')[] = ['All', 'Beginner', 'Intermediate', 'Advanced'];
 
   const filteredSpeeches = useMemo(() => {
@@ -29,7 +29,8 @@ export const SpeechesPage: React.FC<SpeechesPageProps> = ({ onSelectSpeech }) =>
       const matchesCategory = selectedCategory === 'All' || speech.category === selectedCategory;
       const matchesDifficulty = selectedDifficulty === 'All' || speech.difficulty === selectedDifficulty;
       const matchesSearch = speech.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                            speech.speaker.toLowerCase().includes(searchQuery.toLowerCase());
+                            speech.speaker.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                            speech.description.toLowerCase().includes(searchQuery.toLowerCase());
       return matchesCategory && matchesDifficulty && matchesSearch;
     });
   }, [selectedCategory, selectedDifficulty, searchQuery]);
@@ -156,21 +157,21 @@ export const SpeechesPage: React.FC<SpeechesPageProps> = ({ onSelectSpeech }) =>
               <motion.div 
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="text-center py-20 space-y-4"
+                className="text-center py-20 space-y-6 glass-dark rounded-[3rem] border border-white/5"
               >
-                <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mx-auto">
-                  <Search className="text-white/20" size={32} />
+                <div className="w-24 h-24 bg-white/5 rounded-full flex items-center justify-center mx-auto shadow-neon">
+                  <Search className="text-primary/40" size={40} />
                 </div>
-                <div className="space-y-1">
-                  <p className="font-bold text-lg text-white">No videos found</p>
-                  <p className="text-soft-gray text-sm">Try adjusting your filters or search query.</p>
+                <div className="space-y-2">
+                  <p className="font-black text-2xl text-white font-display tracking-tight">No videos found</p>
+                  <p className="text-soft-gray text-sm max-w-[240px] mx-auto font-medium">We couldn't find any videos matching your current filters.</p>
                 </div>
                 <Button 
-                  variant="outline"
-                  className="border-white/10 text-white hover:bg-white/5"
+                  variant="glass"
+                  className="border-white/10 text-white hover:bg-white/5 px-8 rounded-2xl font-black uppercase tracking-widest text-[10px]"
                   onClick={() => { setSelectedCategory('All'); setSelectedDifficulty('All'); setSearchQuery(''); }}
                 >
-                  Clear all filters
+                  Reset all filters
                 </Button>
               </motion.div>
             )}

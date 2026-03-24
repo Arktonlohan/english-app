@@ -1,9 +1,10 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { vocabularyService } from '../services/vocabularyService';
+import { authService } from '../services/authService';
 import { Card, Button, Skeleton, Badge } from '../components/UI';
 import { SRSLevel, VocabularyWord } from '../types';
-import { Search, Volume2, Bookmark, Trash2, ChevronRight, Sparkles, BookOpen, Filter, Link as LinkIcon, Mic } from 'lucide-react';
+import { Search, Volume2, Bookmark, Trash2, ChevronRight, Sparkles, BookOpen, Filter, Link as LinkIcon, Mic, Languages } from 'lucide-react';
 
 interface VocabularyPageProps {
   onPracticePronunciation?: (word: any) => void;
@@ -157,8 +158,14 @@ export const VocabularyPage: React.FC<VocabularyPageProps> = ({ onPracticePronun
                         </div>
                       </div>
 
+                      <div className="flex items-center gap-2 mb-2">
+                        <Languages size={12} className="text-primary/40" />
+                        <span className="text-[10px] font-black text-slate-300 uppercase tracking-[0.2em]">
+                          {authService.getCurrentUser()?.preferences?.nativeLanguage || 'Native'} Translation
+                        </span>
+                      </div>
                       <p className="text-slate-500 text-lg leading-relaxed mb-6 font-medium line-clamp-2">
-                        {word.meaning}
+                        {word.translation || word.meaning}
                       </p>
 
                       <div className="flex justify-between items-center pt-6 border-t border-slate-50">

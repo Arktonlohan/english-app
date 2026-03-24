@@ -234,7 +234,7 @@ const SettingsPage: React.FC = () => {
                       <Globe size={18} />
                     </div>
                     <div>
-                      <p className="text-white font-bold">Target Language</p>
+                      <p className="text-white font-bold">Native Language</p>
                       <p className="text-[10px] font-black text-soft-gray uppercase tracking-widest">For translations</p>
                     </div>
                   </div>
@@ -242,9 +242,9 @@ const SettingsPage: React.FC = () => {
                     {languages.map((lang) => (
                       <button
                         key={lang}
-                        onClick={() => updatePreferences({ targetLanguage: lang })}
+                        onClick={() => updatePreferences({ nativeLanguage: lang })}
                         className={`py-2 px-1 rounded-xl text-[10px] font-black uppercase tracking-tighter transition-all border ${
-                          user?.preferences?.targetLanguage === lang 
+                          user?.preferences?.nativeLanguage === lang 
                             ? 'bg-primary text-white border-primary shadow-neon' 
                             : 'bg-white/5 text-soft-gray border-white/10 hover:bg-white/10'
                         }`}

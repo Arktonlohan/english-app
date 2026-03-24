@@ -67,6 +67,7 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
   const [isTranscriptLoading, setIsTranscriptLoading] = useState(false);
   const [transcriptError, setTranscriptError] = useState<string | null>(null);
   const [isLoopingSentence, setIsLoopingSentence] = useState(false);
+  const [showSizeControl, setShowSizeControl] = useState(false);
   
   const playerRef = useRef<YouTubePlayer | null>(null);
   const transcriptContainerRef = useRef<HTMLDivElement>(null);
@@ -378,11 +379,10 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
     }
   };
 
-  const toggleSubtitleSize = () => {
-    const sizes: ('sm' | 'md' | 'lg')[] = ['sm', 'md', 'lg'];
-    const nextSize = sizes[(sizes.indexOf(subtitleSize) + 1) % sizes.length];
-    setSubtitleSize(nextSize);
-    updatePreferences({ subtitleSize: nextSize });
+  const toggleSubtitleSize = (size: 'sm' | 'md' | 'lg') => {
+    setSubtitleSize(size);
+    updatePreferences({ subtitleSize: size });
+    setShowSizeControl(false);
   };
 
   const speakWord = (text: string) => {
@@ -602,7 +602,7 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
               <div className="space-y-3 relative z-10">
                 <h3 className="text-3xl font-black text-slate-900 tracking-tight">Transcript Unavailable</h3>
                 <p className="text-slate-500 font-medium max-w-sm mx-auto leading-relaxed">
-                  We couldn't automatically retrieve a transcript for this video. You can still watch and listen to the original audio.
+                  We couldn't retrieve a matching transcript for this video. You can still watch and listen to the original audio.
                 </p>
               </div>
               
@@ -618,6 +618,9 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
                   <Sparkles size={20} />
                   Try Sample Study Mode
                 </Button>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                  Note: Sample mode uses a generic transcript for practice
+                </p>
                 <button 
                   onClick={onBack}
                   className="text-slate-400 font-bold text-sm hover:text-slate-600 transition-colors py-2"
@@ -643,19 +646,32 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
             >
               {/* Transcript Source Info */}
               {transcript && transcript.state !== 'unavailable' && (
-                <div className="flex items-center justify-center gap-4 pb-8">
-                  <div className="flex items-center gap-2 px-4 py-1.5 bg-slate-50 rounded-full border border-slate-100 shadow-sm">
-                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                      {transcript.state === 'mock' ? 'Sample Mode' : 'AI Verified'}
-                    </span>
+                <div className="flex flex-col items-center justify-center gap-4 pb-12">
+                  <div className="flex items-center gap-4">
+                    <div className={`flex items-center gap-2 px-4 py-1.5 rounded-full border shadow-sm ${
+                      transcript.state === 'mock' 
+                        ? 'bg-amber-50 border-amber-100 text-amber-600' 
+                        : 'bg-emerald-50 border-emerald-100 text-emerald-600'
+                    }`}>
+                      <div className={`w-2 h-2 rounded-full animate-pulse ${
+                        transcript.state === 'mock' ? 'bg-amber-500' : 'bg-emerald-500'
+                      }`} />
+                      <span className="text-[10px] font-black uppercase tracking-widest">
+                        {transcript.state === 'mock' ? 'Sample Practice Mode' : 'Verified Transcript'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 px-4 py-1.5 bg-slate-50 rounded-full border border-slate-100 shadow-sm">
+                      <Brain size={12} className="text-primary" />
+                      <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                        Interactive Study
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 px-4 py-1.5 bg-slate-50 rounded-full border border-slate-100 shadow-sm">
-                    <Brain size={12} className="text-primary" />
-                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                      Interactive Study
-                    </span>
-                  </div>
+                  {transcript.state === 'mock' && (
+                    <p className="text-[10px] font-bold text-amber-500/80 uppercase tracking-widest text-center max-w-xs">
+                      Note: This is a generic sample transcript for rhythm practice, not the actual video content.
+                    </p>
+                  )}
                 </div>
               )}
 
@@ -670,12 +686,12 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
                     key={sentence.id}
                     onClick={() => handleSentenceClick(sentence)}
                     className={`
-                      relative p-10 rounded-[3rem] transition-all duration-500 cursor-pointer group border-2
+                      relative p-12 rounded-[3.5rem] transition-all duration-500 cursor-pointer group border-2
                       ${isActive 
                         ? 'bg-primary/5 shadow-2xl shadow-primary/10 border-primary/30 scale-[1.02]' 
                         : 'bg-white hover:bg-slate-50 border-transparent'}
                       ${isDifficult && !isActive ? 'border-rose-100 bg-rose-50/10' : ''}
-                      ${isCompleted && !isActive ? 'opacity-60' : ''}
+                      ${isCompleted && !isActive ? 'opacity-40' : ''}
                     `}
                     animate={{
                       opacity: isActive ? 1 : (difficultMode ? 1 : (isCompleted ? 0.6 : 0.9))
@@ -773,8 +789,14 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
                         exit={{ opacity: 0, height: 0 }}
-                        className="mt-8 pt-8 border-t border-primary/10 text-center"
+                        className="mt-8 pt-8 border-t border-primary/10 text-center space-y-2"
                       >
+                        <div className="flex items-center justify-center gap-2">
+                          <Languages size={12} className="text-primary/40" />
+                          <span className="text-[9px] font-black text-slate-300 uppercase tracking-[0.2em]">
+                            {user?.preferences?.nativeLanguage || 'Native'} Translation
+                          </span>
+                        </div>
                         <p className="text-slate-500 font-medium text-xl leading-relaxed italic">
                           {sentence.translation || "Translation unavailable"}
                         </p>
@@ -840,13 +862,38 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
             <span className="text-[10px] font-black">{playbackRate}x</span>
           </button>
 
-          <button 
-            onClick={toggleSubtitleSize}
-            className={`w-12 h-12 rounded-full flex flex-col items-center justify-center transition-all ${isFocusMode ? 'text-white/60 hover:bg-white/10' : 'text-slate-600 hover:bg-white/50'}`}
-          >
-            <span className="text-[10px] font-black uppercase">{subtitleSize}</span>
-            <span className="text-[8px] font-bold opacity-50">SIZE</span>
-          </button>
+          <div className="relative">
+            <button 
+              onClick={() => setShowSizeControl(!showSizeControl)}
+              className={`w-12 h-12 rounded-full flex flex-col items-center justify-center transition-all ${showSizeControl ? 'bg-primary text-white shadow-lg shadow-primary/20' : isFocusMode ? 'text-white/60 hover:bg-white/10' : 'text-slate-600 hover:bg-white/50'}`}
+            >
+              <span className="text-[10px] font-black uppercase">{subtitleSize}</span>
+              <span className="text-[8px] font-bold opacity-50">SIZE</span>
+            </button>
+            
+            <AnimatePresence>
+              {showSizeControl && (
+                <motion.div 
+                  initial={{ opacity: 0, y: 10, scale: 0.9 }}
+                  animate={{ opacity: 1, y: -10, scale: 1 }}
+                  exit={{ opacity: 0, y: 10, scale: 0.9 }}
+                  className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 bg-white rounded-2xl shadow-2xl border border-slate-100 p-2 flex flex-col gap-1 min-w-[100px] z-[110]"
+                >
+                  {(['sm', 'md', 'lg'] as const).map((size) => (
+                    <button
+                      key={size}
+                      onClick={() => toggleSubtitleSize(size)}
+                      className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-colors ${
+                        subtitleSize === size ? 'bg-primary text-white' : 'hover:bg-slate-50 text-slate-600'
+                      }`}
+                    >
+                      {size === 'sm' ? 'Small' : size === 'md' ? 'Medium' : 'Large'}
+                    </button>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
           
           <button 
             onClick={toggleLoopMode}
@@ -1048,7 +1095,9 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
                     </p>
                   </div>
                   <div className="p-8 bg-primary/5 rounded-[2.5rem] space-y-3">
-                    <h4 className="text-[10px] font-black text-primary/40 uppercase tracking-[0.3em]">Translation</h4>
+                    <h4 className="text-[10px] font-black text-primary/40 uppercase tracking-[0.3em]">
+                      {user?.preferences?.nativeLanguage || 'Native'} Translation
+                    </h4>
                     <p className="text-primary text-xl font-black leading-tight">
                       {selectedWord.translation || 'Translation unavailable'}
                     </p>

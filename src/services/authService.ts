@@ -158,7 +158,7 @@ class AuthService {
         level: profile?.level || 1
       },
       preferences: {
-        targetLanguage: profile?.target_language || 'English',
+        nativeLanguage: profile?.target_language || 'English',
         dailyGoal: profile?.daily_goal || 15,
         theme: profile?.theme || 'system',
         notificationsEnabled: profile?.notifications_enabled ?? true,
@@ -259,7 +259,7 @@ class AuthService {
         level: 1
       },
       preferences: {
-        targetLanguage: 'English',
+        nativeLanguage: 'English',
         dailyGoal: 15,
         theme: 'system',
         notificationsEnabled: true,
@@ -325,7 +325,7 @@ class AuthService {
       const { error } = await supabase
         .from('profiles')
         .update({
-          target_language: newPreferences.targetLanguage,
+          target_language: newPreferences.nativeLanguage,
           daily_goal: newPreferences.dailyGoal,
           theme: newPreferences.theme,
           notifications_enabled: newPreferences.notificationsEnabled,
