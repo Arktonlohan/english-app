@@ -7,18 +7,67 @@ class AuthService {
   private currentUser: User | null = null;
   private listeners: ((user: User | null) => void)[] = [];
   private isInitialized = false;
+  private authReady = false;
 
   constructor() {
+    this.initialize();
+  }
+
+  private async initialize() {
     if (isSupabaseConfigured) {
-      this.initSupabaseAuth();
+      await this.initSupabaseAuth();
     } else {
+      this.initLocalAuth();
+    }
+    this.authReady = true;
+    this.notifyListeners();
+  }
+
+  public isReady(): boolean {
+    return this.authReady;
+  }
+
+  private initLocalAuth() {
+    try {
       const savedUser = localStorage.getItem(AUTH_KEY);
       if (savedUser) {
-        this.currentUser = JSON.parse(savedUser);
+        const user = JSON.parse(savedUser);
+        // Verify if this user still exists in our local profiles to get latest data
+        const profiles = this.getLocalProfiles();
+        const profile = profiles.find(p => p.id === user.id);
+        if (profile) {
+          this.currentUser = profile;
+        } else {
+          this.currentUser = user;
+        }
       }
+    } catch (e) {
+      console.error('Failed to init local auth:', e);
+    } finally {
       this.isInitialized = true;
       this.notifyListeners();
     }
+  }
+
+  private getLocalProfiles(): User[] {
+    const stored = localStorage.getItem('fluent_local_profiles');
+    return stored ? JSON.parse(stored) : [];
+  }
+
+  private saveLocalProfile(user: User) {
+    const profiles = this.getLocalProfiles();
+    const index = profiles.findIndex(p => p.id === user.id || p.email === user.email);
+    if (index !== -1) {
+      profiles[index] = { ...profiles[index], ...user };
+    } else {
+      profiles.push(user);
+    }
+    localStorage.setItem('fluent_local_profiles', JSON.stringify(profiles));
+  }
+
+  private generateLocalId(email: string): string {
+    // Simple stable ID generation from email
+    return 'local-' + btoa(email.toLowerCase()).replace(/=/g, '').substring(0, 12);
   }
 
   private async initSupabaseAuth() {
@@ -152,29 +201,21 @@ class AuthService {
     }
 
     // Mock login logic
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    const user: User = {
-      id: 'local-user-123',
-      email,
-      displayName: email.split('@')[0],
-      authProvider: 'email',
-      createdAt: new Date().toISOString(),
-      streak: 5,
-      learningStats: {
-        totalWordsLearned: 45,
-        totalShadowingSessions: 12,
-        totalTimeSpent: 120
-      },
-      preferences: {
-        targetLanguage: 'English',
-        dailyGoal: 15
-      }
-    };
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    const profiles = this.getLocalProfiles();
+    const existingUser = profiles.find(p => p.email.toLowerCase() === email.toLowerCase());
+    
+    if (!existingUser) {
+      // For mock mode, if user doesn't exist, we can either throw or auto-create.
+      // Let's auto-create for better UX in demo mode, but with a stable ID.
+      return this.signUp(email, password);
+    }
 
-    this.currentUser = user;
-    localStorage.setItem(AUTH_KEY, JSON.stringify(user));
+    this.currentUser = existingUser;
+    localStorage.setItem(AUTH_KEY, JSON.stringify(existingUser));
     this.notifyListeners();
-    return user;
+    return existingUser;
   }
 
   async signUp(email: string, password: string, name?: string): Promise<User> {
@@ -196,10 +237,15 @@ class AuthService {
     }
 
     // Mock sign up logic
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    const user: User = {
-      id: 'local-user-' + Math.random().toString(36).substr(2, 9),
-      email,
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    const userId = this.generateLocalId(email);
+    const profiles = this.getLocalProfiles();
+    const existing = profiles.find(p => p.id === userId);
+
+    const user: User = existing || {
+      id: userId,
+      email: email.toLowerCase(),
       displayName: name || email.split('@')[0],
       authProvider: 'email',
       createdAt: new Date().toISOString(),
@@ -207,14 +253,23 @@ class AuthService {
       learningStats: {
         totalWordsLearned: 0,
         totalShadowingSessions: 0,
-        totalTimeSpent: 0
+        totalTimeSpent: 0,
+        points: 0,
+        level: 1
       },
       preferences: {
         targetLanguage: 'English',
-        dailyGoal: 15
+        dailyGoal: 15,
+        theme: 'system',
+        notificationsEnabled: true
       }
     };
 
+    if (name && user.displayName !== name) {
+      user.displayName = name;
+    }
+
+    this.saveLocalProfile(user);
     this.currentUser = user;
     localStorage.setItem(AUTH_KEY, JSON.stringify(user));
     this.notifyListeners();
@@ -231,7 +286,8 @@ class AuthService {
       });
       if (error) throw error;
     } else {
-      alert('Google login is only available when Supabase is configured.');
+      // Mock Google Login
+      await this.signUp('google.user@example.com', 'password', 'Google Explorer');
     }
   }
 

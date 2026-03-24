@@ -10,6 +10,7 @@ interface AuthContextType {
   loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
   forgotPassword: (email: string) => Promise<void>;
+  isReady: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -17,11 +18,13 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [status, setStatus] = useState<AuthStatus>('loading');
+  const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
     const unsubscribe = authService.onAuthStateChanged((user) => {
       setUser(user);
       setStatus(user ? 'authenticated' : 'unauthenticated');
+      setIsReady(true);
     });
 
     return () => unsubscribe();
@@ -55,7 +58,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       signUp, 
       loginWithGoogle, 
       logout, 
-      forgotPassword 
+      forgotPassword,
+      isReady
     }}>
       {children}
     </AuthContext.Provider>

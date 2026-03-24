@@ -19,7 +19,7 @@ function AppContent() {
   const [activeTab, setActiveTab] = useState<TabType>('home');
   const [selectedSpeech, setSelectedSpeech] = useState<Speech | null>(null);
   const [selectedPracticeItem, setSelectedPracticeItem] = useState<any>(null);
-  const { status } = useAuth();
+  const { status, isReady } = useAuth();
 
   const handlePracticePronunciation = (item: any) => {
     setSelectedPracticeItem(item);
@@ -63,7 +63,7 @@ function AppContent() {
     );
   };
 
-  if (status === 'loading') {
+  if (!isReady) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-8 text-center space-y-8 overflow-hidden relative">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-transparent to-accent/20 animate-pulse" />

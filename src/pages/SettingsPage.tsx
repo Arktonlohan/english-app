@@ -278,17 +278,35 @@ const SettingsPage: React.FC = () => {
             animate={{ opacity: 1, x: 0 }}
             className="space-y-8"
           >
-            <div className="p-8 glass-dark rounded-[2.5rem] border border-white/5 shadow-neon space-y-4">
-              <div className="flex items-center gap-4 text-emerald-400">
-                <Shield size={24} />
-                <h3 className="text-xl font-black text-white">Privacy & Sync</h3>
+            <div className="p-8 glass-dark rounded-[2.5rem] border border-white/5 shadow-neon space-y-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4 text-emerald-400">
+                  <Shield size={24} />
+                  <h3 className="text-xl font-black text-white">Privacy & Sync</h3>
+                </div>
+                <Badge variant="glass" className="bg-white/5 border-white/10 text-[10px] py-1 px-3">
+                  {isSupabaseConfigured ? 'Cloud Mode' : 'Local Mode'}
+                </Badge>
               </div>
+              
               <p className="text-soft-gray font-medium leading-relaxed">
-                Your learning progress is securely synced across all your devices using Falai Cloud.
+                {isSupabaseConfigured 
+                  ? 'Your learning progress is securely synced across all your devices using Falai Cloud.' 
+                  : 'Your learning progress is stored locally on this device. Sign in with a cloud account to enable cross-device sync.'}
               </p>
-              <div className="flex items-center gap-2 text-xs font-black text-emerald-400 uppercase tracking-widest bg-emerald-400/10 w-fit px-4 py-2 rounded-full">
-                <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                {isSupabaseConfigured ? 'Cloud Sync Active' : 'Local Storage Mode'}
+
+              <div className="flex flex-col gap-4 pt-2">
+                <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-2 h-2 rounded-full ${isSupabaseConfigured ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400'}`} />
+                    <span className="text-xs font-black text-white uppercase tracking-widest">
+                      {isSupabaseConfigured ? 'Supabase Connected' : 'Local Storage Active'}
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-bold text-soft-gray">
+                    {isSupabaseConfigured ? 'Real-time sync enabled' : 'Offline mode'}
+                  </span>
+                </div>
               </div>
             </div>
 
@@ -322,27 +340,62 @@ const SettingsPage: React.FC = () => {
             animate={{ opacity: 1, x: 0 }}
             className="space-y-8"
           >
-            <div className="grid gap-3">
-              {[
-                { label: 'Help Center', icon: HelpCircle },
-                { label: 'Contact Support', icon: Mail },
-                { label: 'Privacy Policy', icon: Shield },
-                { label: 'Terms of Service', icon: BookOpen },
-              ].map((item) => (
-                <Button key={item.label} variant="ghost" className="w-full justify-between py-8 px-6 glass-dark rounded-2xl border border-white/5 text-white hover:bg-white/5">
-                  <div className="flex items-center gap-4">
-                    <item.icon size={18} className="text-soft-gray" />
-                    <span className="font-bold">{item.label}</span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Card className="p-6 border border-white/5 glass-dark shadow-neon rounded-[2rem] space-y-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary shadow-neon">
+                    <HelpCircle size={24} />
                   </div>
-                  <ExternalLink size={16} className="text-soft-gray" />
-                </Button>
-              ))}
+                  <div>
+                    <h4 className="font-black text-white">Help Center</h4>
+                    <p className="text-xs font-bold text-soft-gray">Guides and tutorials</p>
+                  </div>
+                </div>
+                <Button variant="glass" className="w-full rounded-xl border-white/10 text-xs font-bold py-3">Visit Help Center</Button>
+              </Card>
+
+              <Card className="p-6 border border-white/5 glass-dark shadow-neon rounded-[2rem] space-y-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-neon-cyan/10 flex items-center justify-center text-neon-cyan shadow-neon-cyan">
+                    <Mail size={24} />
+                  </div>
+                  <div>
+                    <h4 className="font-black text-white">Contact Support</h4>
+                    <p className="text-xs font-bold text-soft-gray">Get help from our team</p>
+                  </div>
+                </div>
+                <Button variant="glass" className="w-full rounded-xl border-white/10 text-xs font-bold py-3">Send Message</Button>
+              </Card>
             </div>
 
-            <div className="text-center space-y-2 pt-8">
-              <p className="text-2xl font-black font-display text-white/20">Falai</p>
-              <p className="text-[10px] font-black text-white/10 uppercase tracking-[0.4em]">Version 2.4.0 (Build 842)</p>
-            </div>
+            <Card className="p-8 border border-white/5 glass-dark shadow-neon rounded-[2.5rem] space-y-6">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
+                <div className="space-y-1">
+                  <h4 className="font-black text-white">App Information</h4>
+                  <p className="text-sm text-soft-gray font-medium">Falai | Speak Like a Native</p>
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  <Badge variant="glass" className="bg-white/5 border-white/10 text-[10px] py-1.5 px-4">Version 1.2.4 (Stable)</Badge>
+                  <Badge variant="glass" className="bg-white/5 border-white/10 text-[10px] py-1.5 px-4">Build 2026.03.24</Badge>
+                </div>
+              </div>
+              
+              <div className="h-px bg-white/5 w-full" />
+              
+              <div className="flex flex-wrap gap-x-8 gap-y-4 text-[10px] font-black uppercase tracking-widest text-soft-gray">
+                <button className="hover:text-primary transition-colors">Privacy Policy</button>
+                <button className="hover:text-primary transition-colors">Terms of Service</button>
+                <button className="hover:text-primary transition-colors">Cookie Policy</button>
+                <button className="hover:text-primary transition-colors">Licenses</button>
+              </div>
+            </Card>
+
+            <footer className="pt-10 pb-20 text-center space-y-4">
+              <div className="flex items-center justify-center gap-2 opacity-30 grayscale">
+                <span className="text-xs font-black uppercase tracking-[0.3em] text-white">Falai</span>
+              </div>
+              <p className="text-[10px] font-black text-white/20 uppercase tracking-[0.4em]">Made with ❤️ for language learners</p>
+            </footer>
           </motion.div>
         );
 

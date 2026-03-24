@@ -25,8 +25,11 @@ export interface PronunciationAttempt {
   timestamp: string;
   score: PronunciationScore;
   feedback: string[];
+  strengths?: string[];
+  improvements?: string[];
   phonemes?: PhonemeFeedback[];
   audioUrl?: string;
+  duration?: number;
 }
 
 export interface PronunciationPracticeItem {

@@ -27,18 +27,43 @@ export const supabase = createClient(
 );
 
 /**
- * Simple health check to verify connection
+ * Checks if the Supabase connection is healthy.
  */
-export const checkSupabaseConnection = async (): Promise<boolean> => {
-  if (!isSupabaseConfigured) return false;
-  try {
-    const { data, error } = await supabase.from('vocabulary').select('id').limit(1);
-    if (error && error.code === 'PGRST116') return true; // Table exists but empty
-    return !error;
-  } catch {
-    return false;
+export async function checkSupabaseConnection(): Promise<{ 
+  connected: boolean; 
+  mode: 'supabase' | 'local'; 
+  error?: string;
+}> {
+  if (!isSupabaseConfigured) {
+    return { connected: true, mode: 'local' };
   }
-};
+
+  try {
+    // Try to fetch a single row from a common table
+    const { error } = await supabase.from('vocabulary').select('id', { count: 'exact', head: true }).limit(1);
+    
+    if (error) {
+      // If it's a 401, it might just mean we're not logged in, which is fine for "connected"
+      if (error.code === 'PGRST301' || (error as any).status === 401) {
+        return { connected: true, mode: 'supabase' };
+      }
+      // Table exists but empty is also fine
+      if (error.code === 'PGRST116') {
+        return { connected: true, mode: 'supabase' };
+      }
+      throw error;
+    }
+    
+    return { connected: true, mode: 'supabase' };
+  } catch (err: any) {
+    console.error('Supabase connection check failed:', err);
+    return { 
+      connected: false, 
+      mode: 'supabase', 
+      error: err.message || 'Unknown connection error'
+    };
+  }
+}
 
 /**
  * PRODUCTION DATABASE SCHEMA (SQL for Supabase SQL Editor)

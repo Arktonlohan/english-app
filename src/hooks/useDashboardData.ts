@@ -70,12 +70,12 @@ export const useDashboardData = () => {
     const handleVocabUpdate = () => refreshData();
     const unsubscribeAuth = authService.onAuthStateChanged(() => refreshData());
 
-    window.addEventListener('fluent_progress_update', handleProgressUpdate);
-    window.addEventListener('fluent_vocabulary_update', handleVocabUpdate);
+    window.addEventListener('falai_progress_update', handleProgressUpdate);
+    window.addEventListener('falai_vocabulary_update', handleVocabUpdate);
 
     return () => {
-      window.removeEventListener('fluent_progress_update', handleProgressUpdate);
-      window.removeEventListener('fluent_vocabulary_update', handleVocabUpdate);
+      window.removeEventListener('falai_progress_update', handleProgressUpdate);
+      window.removeEventListener('falai_vocabulary_update', handleVocabUpdate);
       unsubscribeAuth();
     };
   }, [refreshData]);

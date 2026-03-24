@@ -35,6 +35,23 @@ export const PronunciationPage: React.FC<PronunciationPageProps> = ({ initialIte
   const [view, setView] = useState<ViewState>('list');
   const [items, setItems] = useState<PronunciationPracticeItem[]>([]);
   const [selectedItem, setSelectedItem] = useState<PronunciationPracticeItem | null>(null);
+  const [attempts, setAttempts] = useState<PronunciationAttempt[]>([]);
+  const [currentAttempt, setCurrentAttempt] = useState<PronunciationAttempt | null>(null);
+  
+  // Recording states
+  const [recordingState, setRecordingState] = useState<'idle' | 'recording' | 'stopped' | 'error'>('idle');
+  const [recordingTime, setRecordingTime] = useState(0);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const [stats, setStats] = useState<any>(null);
+  const [micError, setMicError] = useState<string | null>(null);
+
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const timerRef = useRef<number | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
+  const [volume, setVolume] = useState(0);
 
   useEffect(() => {
     if (initialItem) {
@@ -43,22 +60,12 @@ export const PronunciationPage: React.FC<PronunciationPageProps> = ({ initialIte
         text: initialItem.text,
         ipa: initialItem.ipa || '',
         type: 'word',
-        category: 'From Vocabulary'
+        category: 'From Study'
       });
       setView('practice');
       onClearInitialItem?.();
     }
   }, [initialItem, onClearInitialItem]);
-  const [attempts, setAttempts] = useState<PronunciationAttempt[]>([]);
-  const [currentAttempt, setCurrentAttempt] = useState<PronunciationAttempt | null>(null);
-  const [isRecording, setIsRecording] = useState(false);
-  const [recordingTime, setRecordingTime] = useState(0);
-  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
-  const [stats, setStats] = useState<any>(null);
-
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const timerRef = useRef<number | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -78,13 +85,38 @@ export const PronunciationPage: React.FC<PronunciationPageProps> = ({ initialIte
       setStats(statsData);
     };
 
-    window.addEventListener('fluent_pronunciation_update', handleUpdate);
-    return () => window.removeEventListener('fluent_pronunciation_update', handleUpdate);
+    window.addEventListener('falai_pronunciation_update', handleUpdate);
+    return () => {
+      window.removeEventListener('falai_pronunciation_update', handleUpdate);
+      if (timerRef.current) clearInterval(timerRef.current);
+      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+    };
   }, []);
 
   const startRecording = async () => {
+    setMicError(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      
+      // Setup audio analysis for visual feedback
+      const audioContext = new AudioContext();
+      const source = audioContext.createMediaStreamSource(stream);
+      const analyser = audioContext.createAnalyser();
+      analyser.fftSize = 256;
+      source.connect(analyser);
+      
+      audioContextRef.current = audioContext;
+      analyserRef.current = analyser;
+      
+      const updateVolume = () => {
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+        analyser.getByteFrequencyData(dataArray);
+        const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
+        setVolume(average);
+        animationFrameRef.current = requestAnimationFrame(updateVolume);
+      };
+      updateVolume();
+
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
@@ -98,25 +130,32 @@ export const PronunciationPage: React.FC<PronunciationPageProps> = ({ initialIte
       mediaRecorder.onstop = () => {
         const blob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
         setAudioBlob(blob);
+        setRecordingState('stopped');
       };
 
       mediaRecorder.start();
-      setIsRecording(true);
+      setRecordingState('recording');
       setRecordingTime(0);
       timerRef.current = window.setInterval(() => {
         setRecordingTime(prev => prev + 1);
       }, 1000);
     } catch (err) {
       console.error('Failed to start recording', err);
+      setMicError('Microphone access denied or unavailable. Please check your browser settings.');
+      setRecordingState('error');
     }
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
+    if (mediaRecorderRef.current && recordingState === 'recording') {
       mediaRecorderRef.current.stop();
       mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
-      setIsRecording(false);
+      
       if (timerRef.current) clearInterval(timerRef.current);
+      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+      if (audioContextRef.current) audioContextRef.current.close();
+      
+      setVolume(0);
     }
   };
 
@@ -125,7 +164,7 @@ export const PronunciationPage: React.FC<PronunciationPageProps> = ({ initialIte
     
     setView('analyzing');
     try {
-      const result = await pronunciationService.analyzePronunciation(selectedItem.text, audioBlob);
+      const result = await pronunciationService.analyzePronunciation(selectedItem.text, audioBlob, recordingTime);
       setCurrentAttempt(result);
       setView('result');
     } catch (err) {
@@ -138,7 +177,16 @@ export const PronunciationPage: React.FC<PronunciationPageProps> = ({ initialIte
     setAudioBlob(null);
     setRecordingTime(0);
     setCurrentAttempt(null);
+    setRecordingState('idle');
     setView('practice');
+  };
+
+  const playTargetAudio = () => {
+    if (!selectedItem) return;
+    const utterance = new SpeechSynthesisUtterance(selectedItem.text);
+    utterance.lang = 'en-US';
+    utterance.rate = 0.9;
+    window.speechSynthesis.speak(utterance);
   };
 
   const formatTime = (seconds: number) => {
@@ -150,8 +198,8 @@ export const PronunciationPage: React.FC<PronunciationPageProps> = ({ initialIte
   const renderList = () => (
     <div className="space-y-8 pb-10">
       <div className="space-y-2">
-        <h1 className="text-4xl font-black font-display tracking-tight text-slate-900">Speak</h1>
-        <p className="text-slate-500 font-medium">Perfect your pronunciation with AI-powered feedback.</p>
+        <h1 className="text-4xl font-black font-display tracking-tight text-slate-900">Pronunciation</h1>
+        <p className="text-slate-500 font-medium">Master your accent with real-time feedback.</p>
       </div>
 
       {stats && (
@@ -185,21 +233,21 @@ export const PronunciationPage: React.FC<PronunciationPageProps> = ({ initialIte
 
       {items.length > 0 && (
         <div className="space-y-4">
-          <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Quick Practice</h3>
+          <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Daily Drill</h3>
           <Card 
             onClick={() => {
-              setSelectedItem(items[4]);
+              setSelectedItem(items[0]);
               setView('practice');
             }}
             className="p-6 bg-gradient-to-br from-primary to-accent text-white border-none shadow-xl shadow-primary/20 cursor-pointer group"
           >
             <div className="flex items-center justify-between mb-4">
-              <Badge variant="glass" className="bg-white/20 border-none">Daily Phrase</Badge>
+              <Badge variant="glass" className="bg-white/20 border-none">Recommended</Badge>
               <Sparkles size={20} className="opacity-60" />
             </div>
-            <h4 className="text-2xl font-black leading-tight mb-4 group-hover:scale-[1.02] transition-transform">{items[4].text}</h4>
+            <h4 className="text-2xl font-black leading-tight mb-4 group-hover:scale-[1.02] transition-transform">{items[0].text}</h4>
             <div className="flex items-center gap-2 text-white/60 text-xs font-bold uppercase tracking-widest">
-              <span>Tap to start drill</span>
+              <span>Start practice drill</span>
               <ArrowRight size={14} />
             </div>
           </Card>
@@ -208,11 +256,11 @@ export const PronunciationPage: React.FC<PronunciationPageProps> = ({ initialIte
 
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-black text-slate-900 tracking-tight">Practice Items</h2>
-          <Badge variant="secondary">{items.length} Available</Badge>
+          <h2 className="text-xl font-black text-slate-900 tracking-tight">Practice Library</h2>
+          <Badge variant="secondary">{items.length} Items</Badge>
         </div>
         
-        <div className="space-y-4">
+        <div className="grid grid-cols-1 gap-4">
           {items.map((item) => (
             <Card 
               key={item.id}
@@ -245,27 +293,34 @@ export const PronunciationPage: React.FC<PronunciationPageProps> = ({ initialIte
       {attempts.length > 0 && (
         <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <h2 className="text-xl font-black text-slate-900 tracking-tight">Recent History</h2>
-            <Button variant="ghost" size="sm" className="text-xs">View All</Button>
+            <h2 className="text-xl font-black text-slate-900 tracking-tight">Attempt History</h2>
+            <History size={20} className="text-slate-300" />
           </div>
           
-          <div className="space-y-4">
-            {attempts.slice(0, 3).map((attempt) => (
-              <div key={attempt.id} className="flex items-center gap-4 p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
+          <div className="space-y-3">
+            {attempts.slice(0, 5).map((attempt) => (
+              <div key={attempt.id} className="flex items-center gap-4 p-4 bg-white rounded-2xl border border-slate-100 shadow-sm">
                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-black text-lg ${
-                  attempt.score.overall >= 90 ? 'bg-emerald-100 text-emerald-600' :
-                  attempt.score.overall >= 80 ? 'bg-blue-100 text-blue-600' :
-                  'bg-amber-100 text-amber-600'
+                  attempt.score.overall >= 90 ? 'bg-emerald-50 text-emerald-600' :
+                  attempt.score.overall >= 80 ? 'bg-blue-50 text-blue-600' :
+                  'bg-amber-50 text-amber-600'
                 }`}>
                   {attempt.score.overall}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-bold text-slate-900 truncate">{attempt.text}</p>
-                  <p className="text-[10px] font-medium text-slate-400">{new Date(attempt.timestamp).toLocaleDateString()}</p>
+                  <p className="text-[10px] font-medium text-slate-400 uppercase tracking-widest">
+                    {new Date(attempt.timestamp).toLocaleDateString()} • {attempt.duration}s
+                  </p>
                 </div>
                 <Button variant="ghost" size="sm" className="p-2 h-auto" onClick={() => {
                   setCurrentAttempt(attempt);
-                  setSelectedItem(items.find(i => i.text === attempt.text) || null);
+                  setSelectedItem(items.find(i => i.text === attempt.text) || {
+                    id: 'hist',
+                    text: attempt.text,
+                    ipa: attempt.ipa || '',
+                    type: 'word'
+                  });
                   setView('result');
                 }}>
                   <ArrowRight size={16} />
@@ -284,77 +339,125 @@ export const PronunciationPage: React.FC<PronunciationPageProps> = ({ initialIte
         <Button variant="ghost" size="sm" className="p-2 h-auto" onClick={() => setView('list')}>
           <ChevronLeft size={24} />
         </Button>
-        <h2 className="text-xl font-black text-slate-900 tracking-tight">Practice</h2>
+        <h2 className="text-xl font-black text-slate-900 tracking-tight">Practice Session</h2>
       </div>
 
-      <Card className="p-10 text-center space-y-8 border-none shadow-2xl shadow-primary/5">
+      <Card className="p-10 text-center space-y-8 border-none shadow-2xl shadow-primary/5 relative overflow-hidden">
+        <div className="absolute top-0 right-0 p-4">
+          <Badge variant="secondary" className="bg-slate-50 text-slate-400 border-none">{selectedItem?.category}</Badge>
+        </div>
+
         <div className="space-y-4">
-          <Badge variant="primary" className="px-4 py-1">{selectedItem?.category}</Badge>
           <h1 className="text-4xl font-black text-slate-900 leading-tight">{selectedItem?.text}</h1>
           {selectedItem?.ipa && (
             <div className="flex items-center justify-center gap-2">
               <span className="text-xl font-mono text-primary font-bold tracking-widest">{selectedItem.ipa}</span>
-              <button className="w-10 h-10 rounded-xl bg-primary/5 text-primary flex items-center justify-center hover:bg-primary/10 transition-colors">
-                <Volume2 size={18} />
-              </button>
             </div>
           )}
+          <button 
+            onClick={playTargetAudio}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/5 text-primary hover:bg-primary/10 transition-colors font-bold text-sm"
+          >
+            <Volume2 size={18} />
+            Listen to Target
+          </button>
         </div>
 
-        <div className="flex flex-col items-center gap-6">
+        <div className="flex flex-col items-center gap-8 pt-4">
           <div className="relative">
             <AnimatePresence>
-              {isRecording && (
-                <motion.div 
-                  initial={{ scale: 0.8, opacity: 0 }}
-                  animate={{ scale: 1.5, opacity: 0.2 }}
-                  exit={{ scale: 0.8, opacity: 0 }}
-                  transition={{ repeat: Infinity, duration: 1.5 }}
-                  className="absolute inset-0 bg-rose-500 rounded-full"
-                />
+              {recordingState === 'recording' && (
+                <>
+                  <motion.div 
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 1.5 + (volume / 50), opacity: 0.2 }}
+                    exit={{ scale: 0.8, opacity: 0 }}
+                    transition={{ duration: 0.1 }}
+                    className="absolute inset-0 bg-rose-500 rounded-full"
+                  />
+                  <motion.div 
+                    initial={{ scale: 0.8, opacity: 0 }}
+                    animate={{ scale: 2 + (volume / 30), opacity: 0.1 }}
+                    exit={{ scale: 0.8, opacity: 0 }}
+                    transition={{ duration: 0.1 }}
+                    className="absolute inset-0 bg-rose-500 rounded-full"
+                  />
+                </>
               )}
             </AnimatePresence>
             <button 
-              onClick={isRecording ? stopRecording : startRecording}
-              className={`w-24 h-24 rounded-full flex items-center justify-center transition-all relative z-10 ${
-                isRecording ? 'bg-rose-500 text-white shadow-xl shadow-rose-200' : 'bg-primary text-white shadow-xl shadow-primary/30'
+              onClick={recordingState === 'recording' ? stopRecording : startRecording}
+              disabled={recordingState === 'stopped'}
+              className={`w-28 h-28 rounded-full flex items-center justify-center transition-all relative z-10 ${
+                recordingState === 'recording' 
+                  ? 'bg-rose-500 text-white shadow-2xl shadow-rose-200 scale-95' 
+                  : recordingState === 'stopped'
+                  ? 'bg-slate-100 text-slate-300 cursor-not-allowed'
+                  : 'bg-primary text-white shadow-2xl shadow-primary/30 hover:scale-105 active:scale-95'
               }`}
             >
-              {isRecording ? <Square size={32} /> : <Mic size={32} />}
+              {recordingState === 'recording' ? <Square size={36} fill="white" /> : <Mic size={36} />}
             </button>
           </div>
           
-          <div className="space-y-1">
-            <p className={`text-sm font-black uppercase tracking-[0.2em] ${isRecording ? 'text-rose-500 animate-pulse' : 'text-slate-400'}`}>
-              {isRecording ? 'Recording...' : 'Tap to Record'}
+          <div className="space-y-2">
+            <p className={`text-xs font-black uppercase tracking-[0.2em] ${
+              recordingState === 'recording' ? 'text-rose-500 animate-pulse' : 
+              recordingState === 'stopped' ? 'text-emerald-500' : 'text-slate-400'
+            }`}>
+              {recordingState === 'recording' ? 'Recording Voice...' : 
+               recordingState === 'stopped' ? 'Recording Captured' : 'Tap to Start Recording'}
             </p>
-            {isRecording && <p className="text-2xl font-mono font-black text-slate-900">{formatTime(recordingTime)}</p>}
+            {recordingState === 'recording' && (
+              <p className="text-3xl font-mono font-black text-slate-900">{formatTime(recordingTime)}</p>
+            )}
           </div>
         </div>
+
+        {micError && (
+          <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl flex items-center gap-3 text-rose-600 text-sm font-medium">
+            <AlertCircle size={18} />
+            {micError}
+          </div>
+        )}
       </Card>
 
-      {audioBlob && !isRecording && (
+      {audioBlob && recordingState === 'stopped' && (
         <motion.div 
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           className="space-y-4"
         >
-          <div className="flex items-center gap-4 p-6 bg-white rounded-[2rem] border border-slate-100 shadow-xl shadow-slate-200/50">
-            <button className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-600 flex items-center justify-center hover:bg-slate-200 transition-colors">
-              <Play size={20} fill="currentColor" />
+          <div className="flex items-center gap-4 p-6 bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50">
+            <button 
+              onClick={() => {
+                const audio = new Audio(URL.createObjectURL(audioBlob));
+                audio.play();
+              }}
+              className="w-14 h-14 rounded-2xl bg-primary/10 text-primary flex items-center justify-center hover:bg-primary/20 transition-colors"
+            >
+              <PlayCircle size={28} />
             </button>
-            <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-              <div className="w-1/3 h-full bg-primary" />
+            <div className="flex-1 space-y-1">
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Your Recording</p>
+              <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                <motion.div 
+                  initial={{ width: 0 }}
+                  animate={{ width: '100%' }}
+                  transition={{ duration: recordingTime }}
+                  className="h-full bg-primary" 
+                />
+              </div>
             </div>
-            <span className="text-xs font-mono font-bold text-slate-400">0:02</span>
+            <span className="text-sm font-mono font-bold text-slate-900">{formatTime(recordingTime)}</span>
           </div>
           
           <div className="grid grid-cols-2 gap-4">
-            <Button variant="outline" className="py-6 rounded-[1.5rem]" onClick={() => setAudioBlob(null)}>
-              <RotateCcw size={18} className="mr-2" /> Retake
+            <Button variant="outline" className="py-7 rounded-[2rem] border-slate-200 text-slate-600 font-bold" onClick={() => setRecordingState('idle')}>
+              <RotateCcw size={20} className="mr-2" /> Retake
             </Button>
-            <Button className="py-6 rounded-[1.5rem]" onClick={analyze}>
-              <Sparkles size={18} className="mr-2" /> Analyze
+            <Button className="py-7 rounded-[2rem] gradient-primary shadow-neon text-white font-bold" onClick={analyze}>
+              <Sparkles size={20} className="mr-2" /> Analyze Now
             </Button>
           </div>
         </motion.div>
@@ -363,22 +466,28 @@ export const PronunciationPage: React.FC<PronunciationPageProps> = ({ initialIte
   );
 
   const renderAnalyzing = () => (
-    <div className="min-h-[60vh] flex flex-col items-center justify-center text-center space-y-8">
+    <div className="min-h-[70vh] flex flex-col items-center justify-center text-center space-y-10">
       <div className="relative">
         <motion.div 
           animate={{ rotate: 360 }}
-          transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-          className="w-32 h-32 border-4 border-primary/10 border-t-primary rounded-full"
+          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+          className="w-40 h-40 border-[6px] border-primary/5 border-t-primary rounded-full"
         />
-        <div className="absolute inset-0 flex items-center justify-center text-primary">
-          <Sparkles size={40} />
+        <div className="absolute inset-0 flex items-center justify-center">
+          <motion.div
+            animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
+            transition={{ duration: 2, repeat: Infinity }}
+            className="text-primary"
+          >
+            <Activity size={48} />
+          </motion.div>
         </div>
       </div>
-      <div className="space-y-2">
-        <h2 className="text-2xl font-black text-slate-900">Analyzing Pronunciation</h2>
-        <p className="text-slate-500 font-medium">Our AI is processing your speech patterns...</p>
+      <div className="space-y-3">
+        <h2 className="text-3xl font-black text-slate-900 tracking-tight">Analyzing Speech</h2>
+        <p className="text-slate-500 font-medium max-w-[280px] mx-auto">Evaluating accuracy, fluency, and intonation patterns...</p>
       </div>
-      <div className="w-48 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+      <div className="w-56 h-2 bg-slate-100 rounded-full overflow-hidden">
         <motion.div 
           initial={{ x: '-100%' }}
           animate={{ x: '100%' }}
@@ -391,7 +500,7 @@ export const PronunciationPage: React.FC<PronunciationPageProps> = ({ initialIte
 
   const renderResult = () => {
     if (!currentAttempt) return null;
-    const { score, feedback, phonemes } = currentAttempt;
+    const { score, feedback, strengths, improvements, phonemes } = currentAttempt;
 
     return (
       <div className="space-y-8 pb-10">
@@ -399,127 +508,117 @@ export const PronunciationPage: React.FC<PronunciationPageProps> = ({ initialIte
           <Button variant="ghost" size="sm" className="p-2 h-auto" onClick={resetPractice}>
             <ChevronLeft size={24} />
           </Button>
-          <h2 className="text-xl font-black text-slate-900 tracking-tight">Results</h2>
+          <h2 className="text-xl font-black text-slate-900 tracking-tight">Practice Result</h2>
           <Button variant="ghost" size="sm" className="p-2 h-auto" onClick={() => setView('list')}>
             <X size={24} />
           </Button>
         </div>
 
-        <Card className="p-10 text-center space-y-6 border-none bg-gradient-to-br from-primary to-accent text-white shadow-2xl shadow-primary/20">
-          <div className="space-y-2">
-            <p className="text-[10px] font-black uppercase tracking-[0.3em] opacity-60">Overall Score</p>
-            <h1 className="text-7xl font-black tracking-tighter">{score.overall}</h1>
+        <Card className="p-10 text-center space-y-6 border-none bg-gradient-to-br from-primary to-accent text-white shadow-2xl shadow-primary/20 relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
+            <Activity className="w-full h-full scale-150" />
           </div>
-          <div className="flex items-center justify-center gap-2">
-            {score.overall >= 90 ? (
-              <Badge variant="glass" className="bg-white/20 border-none px-4 py-1">Excellent</Badge>
-            ) : score.overall >= 80 ? (
-              <Badge variant="glass" className="bg-white/20 border-none px-4 py-1">Great</Badge>
-            ) : (
-              <Badge variant="glass" className="bg-white/20 border-none px-4 py-1">Good</Badge>
-            )}
+          
+          <div className="relative z-10 space-y-2">
+            <p className="text-[10px] font-black uppercase tracking-[0.4em] opacity-70">Overall Accuracy</p>
+            <h1 className="text-8xl font-black tracking-tighter">{score.overall}</h1>
+            <div className="flex items-center justify-center gap-2 pt-2">
+              <Badge variant="glass" className="bg-white/20 border-none px-6 py-2 text-sm font-black">
+                {score.overall >= 90 ? 'NATIVE-LIKE' : score.overall >= 80 ? 'PROFICIENT' : 'DEVELOPING'}
+              </Badge>
+            </div>
           </div>
         </Card>
 
         <div className="grid grid-cols-2 gap-4">
-          <div className="p-6 bg-white rounded-[2rem] border border-slate-100 shadow-sm space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Accuracy</span>
-              <span className="text-lg font-black text-slate-900">{score.accuracy}%</span>
+          {[
+            { label: 'Accuracy', val: score.accuracy, color: 'bg-emerald-500' },
+            { label: 'Fluency', val: score.fluency, color: 'bg-blue-500' },
+            { label: 'Stress', val: score.stress, color: 'bg-amber-500' },
+            { label: 'Intonation', val: score.intonation, color: 'bg-purple-500' }
+          ].map((metric) => (
+            <div key={metric.label} className="p-6 bg-white rounded-[2.5rem] border border-slate-100 shadow-sm space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{metric.label}</span>
+                <span className="text-lg font-black text-slate-900">{metric.val}%</span>
+              </div>
+              <div className="h-2 bg-slate-50 rounded-full overflow-hidden">
+                <motion.div 
+                  initial={{ width: 0 }}
+                  animate={{ width: `${metric.val}%` }}
+                  transition={{ duration: 1, delay: 0.2 }}
+                  className={`h-full ${metric.color}`} 
+                />
+              </div>
             </div>
-            <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-              <motion.div 
-                initial={{ width: 0 }}
-                animate={{ width: `${score.accuracy}%` }}
-                className="h-full bg-emerald-500" 
-              />
-            </div>
-          </div>
-          <div className="p-6 bg-white rounded-[2rem] border border-slate-100 shadow-sm space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Fluency</span>
-              <span className="text-lg font-black text-slate-900">{score.fluency}%</span>
-            </div>
-            <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-              <motion.div 
-                initial={{ width: 0 }}
-                animate={{ width: `${score.fluency}%` }}
-                className="h-full bg-blue-500" 
-              />
-            </div>
-          </div>
-          <div className="p-6 bg-white rounded-[2rem] border border-slate-100 shadow-sm space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Stress</span>
-              <span className="text-lg font-black text-slate-900">{score.stress}%</span>
-            </div>
-            <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-              <motion.div 
-                initial={{ width: 0 }}
-                animate={{ width: `${score.stress}%` }}
-                className="h-full bg-amber-500" 
-              />
-            </div>
-          </div>
-          <div className="p-6 bg-white rounded-[2rem] border border-slate-100 shadow-sm space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Intonation</span>
-              <span className="text-lg font-black text-slate-900">{score.intonation}%</span>
-            </div>
-            <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-              <motion.div 
-                initial={{ width: 0 }}
-                animate={{ width: `${score.intonation}%` }}
-                className="h-full bg-purple-500" 
-              />
-            </div>
-          </div>
+          ))}
         </div>
 
-        <div className="space-y-6">
-          <h3 className="text-xl font-black text-slate-900 tracking-tight">AI Feedback</h3>
-          <div className="space-y-4">
-            {feedback.map((text, i) => (
-              <div key={i} className="flex gap-4 p-5 bg-slate-50 rounded-[1.5rem] border border-slate-100">
-                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0">
-                  <Info size={16} />
-                </div>
-                <p className="text-sm font-medium text-slate-600 leading-relaxed">{text}</p>
+        <div className="grid grid-cols-1 gap-6">
+          {strengths && strengths.length > 0 && (
+            <div className="space-y-4">
+              <h3 className="text-sm font-black text-emerald-600 uppercase tracking-widest flex items-center gap-2">
+                <CheckCircle2 size={16} /> Key Strengths
+              </h3>
+              <div className="space-y-3">
+                {strengths.map((s, i) => (
+                  <div key={i} className="p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100 text-sm font-medium text-emerald-700">
+                    {s}
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
+          )}
+
+          {improvements && improvements.length > 0 && (
+            <div className="space-y-4">
+              <h3 className="text-sm font-black text-amber-600 uppercase tracking-widest flex items-center gap-2">
+                <TrendingUp size={16} /> Areas for Growth
+              </h3>
+              <div className="space-y-3">
+                {improvements.map((s, i) => (
+                  <div key={i} className="p-4 bg-amber-50/50 rounded-2xl border border-amber-100 text-sm font-medium text-amber-700">
+                    {s}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {phonemes && phonemes.length > 0 && (
           <div className="space-y-6">
-            <h3 className="text-xl font-black text-slate-900 tracking-tight">Sound Analysis</h3>
+            <h3 className="text-xl font-black text-slate-900 tracking-tight">Phoneme Breakdown</h3>
             <div className="space-y-4">
               {phonemes.map((p, i) => (
-                <div key={i} className="p-6 bg-white rounded-[2rem] border border-slate-100 shadow-sm space-y-4">
+                <div key={i} className="p-6 bg-white rounded-[2.5rem] border border-slate-100 shadow-sm space-y-4">
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-mono text-xl font-black ${
+                    <div className="flex items-center gap-4">
+                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-mono text-2xl font-black ${
                         p.isCorrect ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'
                       }`}>
                         /{p.phoneme}/
                       </div>
                       <div>
-                        <p className="text-sm font-black text-slate-900">{p.isCorrect ? 'Perfect Sound' : 'Needs Work'}</p>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Phoneme Score: {p.score}%</p>
+                        <p className="text-base font-black text-slate-900">{p.isCorrect ? 'Correct' : 'Incorrect'}</p>
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Score: {p.score}%</p>
                       </div>
                     </div>
-                    {p.isCorrect ? <CheckCircle2 className="text-emerald-500" size={24} /> : <AlertCircle className="text-rose-500" size={24} />}
+                    {p.isCorrect ? <CheckCircle2 className="text-emerald-500" size={28} /> : <AlertCircle className="text-rose-500" size={28} />}
                   </div>
-                  <p className="text-xs font-medium text-slate-500 leading-relaxed">{p.feedback}</p>
+                  <p className="text-sm font-medium text-slate-500 leading-relaxed">{p.feedback}</p>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        <div className="pt-4">
-          <Button className="w-full py-6 rounded-[1.5rem]" onClick={resetPractice}>
+        <div className="pt-6 flex flex-col gap-4">
+          <Button className="w-full py-7 rounded-[2rem] gradient-primary shadow-neon text-white font-bold" onClick={resetPractice}>
             Practice Again
+          </Button>
+          <Button variant="ghost" className="w-full py-4 text-slate-400 font-bold" onClick={() => setView('list')}>
+            Back to Library
           </Button>
         </div>
       </div>

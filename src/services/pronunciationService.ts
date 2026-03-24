@@ -45,7 +45,7 @@ class PronunciationService {
   }
 
   private notify() {
-    window.dispatchEvent(new CustomEvent('fluent_pronunciation_update'));
+    window.dispatchEvent(new CustomEvent('falai_pronunciation_update'));
   }
 
   async getAttempts(): Promise<PronunciationAttempt[]> {
@@ -59,29 +59,53 @@ class PronunciationService {
     return MOCK_PRACTICE_ITEMS;
   }
 
-  async analyzePronunciation(text: string, audioBlob: Blob): Promise<PronunciationAttempt> {
+  async analyzePronunciation(text: string, audioBlob: Blob, duration: number): Promise<PronunciationAttempt> {
     const userId = authService.getUserId();
     if (!userId) throw new Error('User must be logged in to analyze pronunciation');
 
     // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    await new Promise(resolve => setTimeout(resolve, 1500));
 
-    // Mock analysis logic
-    const overall = Math.floor(Math.random() * 30) + 70; // 70-99
-    const accuracy = Math.floor(Math.random() * 20) + 80;
-    const fluency = Math.floor(Math.random() * 20) + 75;
-    const stress = Math.floor(Math.random() * 20) + 70;
-    const rhythm = Math.floor(Math.random() * 20) + 75;
-    const intonation = Math.floor(Math.random() * 20) + 80;
+    // Believable analysis logic
+    const wordCount = text.split(' ').length;
+    const charCount = text.length;
+    
+    // Ideal duration is roughly 0.3-0.6 seconds per word for fluent speech
+    const idealDuration = Math.max(0.5, wordCount * 0.4);
+    const durationRatio = duration / idealDuration;
+    
+    // Score factors
+    let fluencyModifier = 0;
+    if (durationRatio < 0.5) fluencyModifier = -20; // Too fast
+    else if (durationRatio > 2.0) fluencyModifier = -15; // Too slow
+    else if (durationRatio > 1.2) fluencyModifier = -5; // Slightly slow
+    
+    // Base scores with some randomness but influenced by "logic"
+    const baseAccuracy = 85 + (Math.random() * 10);
+    const baseFluency = 80 + fluencyModifier + (Math.random() * 10);
+    const baseStress = 75 + (Math.random() * 15);
+    const baseRhythm = 70 + (Math.random() * 20);
+    const baseIntonation = 75 + (Math.random() * 15);
 
     const score: PronunciationScore = {
-      overall,
-      accuracy,
-      fluency,
-      stress,
-      rhythm,
-      intonation
+      overall: Math.round((baseAccuracy + baseFluency + baseStress + baseRhythm + baseIntonation) / 5),
+      accuracy: Math.round(baseAccuracy),
+      fluency: Math.round(baseFluency),
+      stress: Math.round(baseStress),
+      rhythm: Math.round(baseRhythm),
+      intonation: Math.round(baseIntonation)
     };
+
+    const strengths: string[] = [];
+    const improvements: string[] = [];
+    
+    if (score.accuracy > 85) strengths.push("Clear articulation of individual sounds.");
+    if (score.fluency > 85) strengths.push("Natural pace and smooth transitions.");
+    if (score.stress > 80) strengths.push("Correct emphasis on stressed syllables.");
+    
+    if (score.accuracy < 80) improvements.push("Focus on vowel clarity in multi-syllable words.");
+    if (durationRatio > 1.5) improvements.push("Try to reduce pauses between words for better flow.");
+    if (score.intonation < 80) improvements.push("Work on rising and falling pitch at sentence ends.");
 
     const feedback = this.generateFeedback(score);
     const phonemes = this.generatePhonemeFeedback(text);
@@ -92,7 +116,10 @@ class PronunciationService {
       timestamp: new Date().toISOString(),
       score,
       feedback,
+      strengths,
+      improvements,
       phonemes,
+      duration,
       audioUrl: URL.createObjectURL(audioBlob)
     };
 

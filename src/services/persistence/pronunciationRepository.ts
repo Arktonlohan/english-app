@@ -54,7 +54,10 @@ class SupabasePronunciationRepository implements PronunciationRepository {
         timestamp: item.timestamp,
         score: item.score,
         feedback: item.feedback,
+        strengths: item.strengths,
+        improvements: item.improvements,
         phonemes: item.phonemes,
+        duration: item.duration,
         audioUrl: item.audio_url
       }));
     } catch (error) {
@@ -75,7 +78,10 @@ class SupabasePronunciationRepository implements PronunciationRepository {
           timestamp: attempt.timestamp,
           score: attempt.score,
           feedback: attempt.feedback,
+          strengths: attempt.strengths,
+          improvements: attempt.improvements,
           phonemes: attempt.phonemes,
+          duration: attempt.duration,
           audio_url: attempt.audioUrl
         }]);
 

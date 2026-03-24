@@ -63,6 +63,7 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
   const [transcript, setTranscript] = useState<Transcript | undefined>(speech.transcript);
   const [isTranscriptLoading, setIsTranscriptLoading] = useState(false);
   const [transcriptError, setTranscriptError] = useState<string | null>(null);
+  const [isLoopingSentence, setIsLoopingSentence] = useState(false);
   
   const playerRef = useRef<YouTubePlayer | null>(null);
   const transcriptContainerRef = useRef<HTMLDivElement>(null);
@@ -191,7 +192,7 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
         }
 
         // Handle Looping
-        if (loopMode === 'sentence' && activeSentenceIndex !== -1) {
+        if ((loopMode === 'sentence' || isLoopingSentence) && activeSentenceIndex !== -1) {
           const currentSentence = sentences[activeSentenceIndex];
           if (time >= currentSentence.endTime) {
             playerRef.current.seekTo(currentSentence.startTime, true);
@@ -292,10 +293,25 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
   };
   
   const handleWordClick = async (word: Word, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setSelectedWord(word);
-    const isSaved = await vocabularyService.isWordSaved(word.text);
+    if (e) e.stopPropagation();
+    
+    // Ensure the word has all necessary fields for the modal
+    const wordWithDetails = {
+      ...word,
+      ipa: word.ipa || '/.../',
+      meaning: word.meaning || 'Definition unavailable',
+      translation: word.translation || 'Translation unavailable',
+      example: word.example || 'Example unavailable'
+    };
+    
+    setSelectedWord(wordWithDetails);
+    const isSaved = vocabularyService.isWordSaved(word.text);
     setIsSaved(isSaved);
+  };
+
+  const toggleLoopSentence = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setIsLoopingSentence(!isLoopingSentence);
   };
 
   const handleSentenceClick = (sentence: Sentence) => {
@@ -319,18 +335,17 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
   const handleSaveWord = async () => {
     if (!selectedWord) return;
     
-    const existingWord = await vocabularyService.getVocabularyWordByText(selectedWord.text);
-    if (existingWord) {
+    const isAlreadySaved = vocabularyService.isWordSaved(selectedWord.text);
+    if (isAlreadySaved) {
       setIsSaved(true);
       return;
     }
     
     const wordToSave = {
-      text: selectedWord.text,
+      word: selectedWord.text,
       ipa: selectedWord.ipa || '/.../', 
-      meaning: selectedWord.meaning || 'Definition unavailable', 
-      example: selectedWord.example || 'Example unavailable', 
       translation: selectedWord.translation || 'Translation unavailable', 
+      exampleSentence: selectedWord.example || 'Example unavailable', 
       sourceSpeechId: speech.id,
       sourceSentenceId: sentences[activeSentenceIndex]?.id
     };
@@ -338,7 +353,7 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
     await vocabularyService.addWord(wordToSave);
     
     setIsSaved(true);
-    const newCount = await vocabularyService.getSavedWordsCountForSpeech(speech.id);
+    const newCount = vocabularyService.getSavedWordsCountForSpeech(speech.id);
     setSavedWordsCount(newCount);
     await progressService.updateSavedWordsCount(speech.id, newCount);
   };
@@ -535,215 +550,233 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
 
         {/* Transcript Section */}
         <div className={`px-6 py-10 max-w-3xl mx-auto space-y-12 transition-all duration-500 ${isFocusMode ? 'opacity-0 pointer-events-none scale-95' : 'opacity-100'}`}>
-          <div 
-            ref={transcriptContainerRef}
-            className="space-y-10"
-          >
-            {/* Transcript Source Info */}
-          {!isTranscriptLoading && transcript && transcript.state !== 'unavailable' && (
-            <div className="flex items-center justify-center gap-4 pb-4">
-              <div className="flex items-center gap-2 px-3 py-1 bg-slate-50 rounded-full border border-slate-100">
-                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                  {transcript.state === 'mock' ? 'Sample Transcript' : 'AI Verified Transcript'}
-                </span>
+          {isTranscriptLoading ? (
+            <div className="flex flex-col items-center justify-center py-32 space-y-8">
+              <div className="relative">
+                <div className="w-24 h-24 rounded-full border-4 border-primary/10 border-t-primary animate-spin" />
+                <motion.div 
+                  animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.6, 0.3] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                  className="absolute inset-0 bg-primary/20 blur-2xl rounded-full"
+                />
               </div>
-              <div className="flex items-center gap-2 px-3 py-1 bg-slate-50 rounded-full border border-slate-100">
-                <Brain size={12} className="text-primary" />
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                  Ready for Shadowing
-                </span>
+              <div className="text-center space-y-3">
+                <h3 className="text-2xl font-black text-slate-900 tracking-tight">Analyzing Speech</h3>
+                <p className="text-slate-500 font-medium animate-pulse">Syncing transcript with video timeline...</p>
               </div>
             </div>
-          )}
-
-          {isTranscriptLoading ? (
-              <div className="flex flex-col items-center justify-center py-24 space-y-6">
-                <div className="relative">
-                  <Loader2 className="animate-spin text-primary" size={48} />
-                  <motion.div 
-                    animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                    className="absolute inset-0 bg-primary/20 blur-xl rounded-full"
-                  />
-                </div>
-                <div className="text-center space-y-2">
-                  <p className="text-slate-900 font-black text-xl tracking-tight">Analyzing Content</p>
-                  <p className="text-slate-400 font-medium animate-pulse">Generating your personalized transcript...</p>
-                </div>
-              </div>
-            ) : transcript?.state === 'unavailable' || transcriptError ? (
-              <Card className="p-12 border-none bg-slate-50 rounded-[3.5rem] text-center space-y-8 relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -mr-32 -mt-32" />
-                
-                <div className="w-24 h-24 rounded-[2.5rem] bg-white flex items-center justify-center text-slate-300 mx-auto shadow-xl border border-slate-100 relative z-10">
-                  <FileQuestion size={48} />
-                </div>
-                
-                <div className="space-y-3 relative z-10">
-                  <h3 className="text-3xl font-black text-slate-900 tracking-tight">Transcript Unavailable</h3>
-                  <p className="text-slate-500 font-medium max-w-sm mx-auto leading-relaxed">
-                    We couldn't automatically retrieve a transcript for this video. You can still watch and listen to the original audio.
-                  </p>
-                </div>
-                
-                <div className="pt-6 flex flex-col gap-4 max-w-sm mx-auto relative z-10">
-                  <Button 
-                    className="rounded-[1.5rem] py-6 font-black text-lg flex items-center justify-center gap-3 shadow-xl shadow-primary/20"
-                    onClick={() => {
-                      // Force a mock transcript for study
-                      setTranscript(speechService.generateMockTranscript(speech.id));
-                      setTranscriptError(null);
-                    }}
-                  >
-                    <Sparkles size={20} />
-                    Try Sample Study Mode
-                  </Button>
-                  <button 
-                    onClick={onBack}
-                    className="text-slate-400 font-bold text-sm hover:text-slate-600 transition-colors py-2"
-                  >
-                    Choose Another Video
-                  </button>
-                </div>
-              </Card>
-            ) : filteredSentences.length === 0 ? (
-              <div className="text-center py-20 space-y-4">
-                <div className="w-16 h-16 rounded-full bg-slate-50 flex items-center justify-center text-slate-300 mx-auto">
-                  <AlertCircle size={32} />
-                </div>
-                <p className="text-slate-400 font-bold">No sentences found matching your filters.</p>
-                <Button variant="secondary" onClick={() => setDifficultMode(false)}>
-                  Show All Sentences
-                </Button>
-              </div>
-            ) : (
-              filteredSentences.map((sentence) => {
-              const sIdx = sentences.findIndex(s => s.id === sentence.id);
-              const isDifficult = difficultSentenceIds.includes(sentence.id);
-              const isCompleted = completedSentenceIds.includes(sentence.id);
+          ) : transcript?.state === 'unavailable' || transcriptError ? (
+            <Card className="p-12 border-none bg-slate-50 rounded-[3.5rem] text-center space-y-8 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -mr-32 -mt-32" />
               
-              return (
-                <motion.div
-                  key={sentence.id}
-                  onClick={() => handleSentenceClick(sentence)}
-                  className={`
-                    relative p-8 rounded-[2.5rem] transition-all duration-500 cursor-pointer group border-2
-                    ${sIdx === activeSentenceIndex 
-                      ? 'bg-primary/5 shadow-2xl shadow-primary/5 border-primary/20' 
-                      : 'bg-white hover:bg-slate-50 border-transparent'}
-                    ${isDifficult && sIdx !== activeSentenceIndex ? 'border-rose-100 bg-rose-50/20' : ''}
-                    ${isCompleted && sIdx !== activeSentenceIndex ? 'opacity-60' : ''}
-                  `}
-                  animate={{
-                    scale: sIdx === activeSentenceIndex ? 1.02 : 1,
-                    opacity: sIdx === activeSentenceIndex ? 1 : (difficultMode ? 1 : (isCompleted ? 0.6 : 0.9))
+              <div className="w-24 h-24 rounded-[2.5rem] bg-white flex items-center justify-center text-slate-300 mx-auto shadow-xl border border-slate-100 relative z-10">
+                <FileQuestion size={48} />
+              </div>
+              
+              <div className="space-y-3 relative z-10">
+                <h3 className="text-3xl font-black text-slate-900 tracking-tight">Transcript Unavailable</h3>
+                <p className="text-slate-500 font-medium max-w-sm mx-auto leading-relaxed">
+                  We couldn't automatically retrieve a transcript for this video. You can still watch and listen to the original audio.
+                </p>
+              </div>
+              
+              <div className="pt-6 flex flex-col gap-4 max-w-sm mx-auto relative z-10">
+                <Button 
+                  className="rounded-[1.5rem] py-6 font-black text-lg flex items-center justify-center gap-3 shadow-xl shadow-primary/20"
+                  onClick={() => {
+                    // Force a mock transcript for study
+                    setTranscript(speechService.generateMockTranscript(speech.id));
+                    setTranscriptError(null);
                   }}
                 >
-                  {/* Sentence Status Badges */}
-                  <div className="absolute -top-3 left-8 flex gap-2">
-                    {isDifficult && (
-                      <Badge variant="warning" className="rounded-full px-2 py-0.5 text-[8px] font-black shadow-sm">Difficult</Badge>
-                    )}
-                    {isCompleted && (
-                      <Badge variant="success" className="rounded-full px-2 py-0.5 text-[8px] font-black shadow-sm">Mastered</Badge>
-                    )}
+                  <Sparkles size={20} />
+                  Try Sample Study Mode
+                </Button>
+                <button 
+                  onClick={onBack}
+                  className="text-slate-400 font-bold text-sm hover:text-slate-600 transition-colors py-2"
+                >
+                  Choose Another Video
+                </button>
+              </div>
+            </Card>
+          ) : filteredSentences.length === 0 ? (
+            <div className="text-center py-20 space-y-4">
+              <div className="w-16 h-16 rounded-full bg-slate-50 flex items-center justify-center text-slate-300 mx-auto">
+                <AlertCircle size={32} />
+              </div>
+              <p className="text-slate-400 font-bold">No sentences found matching your filters.</p>
+              <Button variant="secondary" onClick={() => setDifficultMode(false)}>
+                Show All Sentences
+              </Button>
+            </div>
+          ) : (
+            <div 
+              ref={transcriptContainerRef}
+              className="space-y-12"
+            >
+              {/* Transcript Source Info */}
+              {transcript && transcript.state !== 'unavailable' && (
+                <div className="flex items-center justify-center gap-4 pb-8">
+                  <div className="flex items-center gap-2 px-4 py-1.5 bg-slate-50 rounded-full border border-slate-100 shadow-sm">
+                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                      {transcript.state === 'mock' ? 'Sample Mode' : 'AI Verified'}
+                    </span>
                   </div>
-
-                  {/* Sentence Controls */}
-                  <div className="absolute -right-4 top-1/2 -translate-y-1/2 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-2 group-hover:translate-x-0">
-                     <button 
-                      onClick={(e) => { e.stopPropagation(); handleSentenceClick(sentence); }}
-                      className="w-10 h-10 rounded-2xl bg-white shadow-xl flex items-center justify-center text-slate-400 hover:text-primary transition-all hover:scale-110 active:scale-90"
-                      title="Replay Sentence"
-                     >
-                        <RotateCcw size={16} />
-                     </button>
-                     <button 
-                      onClick={(e) => { 
-                        e.stopPropagation(); 
-                        onPracticePronunciation?.({
-                          text: sentence.text,
-                          ipa: ''
-                        });
-                        onBack();
-                      }}
-                      className="w-10 h-10 rounded-2xl bg-white shadow-xl flex items-center justify-center text-slate-400 hover:text-primary transition-all hover:scale-110 active:scale-90"
-                      title="Practice Pronunciation"
-                     >
-                        <Mic size={16} />
-                     </button>
-                     <button 
-                      onClick={(e) => { e.stopPropagation(); toggleDifficult(sentence.id); }}
-                      className={`w-10 h-10 rounded-2xl bg-white shadow-xl flex items-center justify-center transition-all hover:scale-110 active:scale-90 ${isDifficult ? 'text-rose-500' : 'text-slate-400 hover:text-rose-500'}`}
-                      title="Mark as Difficult"
-                     >
-                        <AlertCircle size={16} />
-                     </button>
+                  <div className="flex items-center gap-2 px-4 py-1.5 bg-slate-50 rounded-full border border-slate-100 shadow-sm">
+                    <Brain size={12} className="text-primary" />
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                      Interactive Study
+                    </span>
                   </div>
-
-                <div className="flex flex-wrap gap-x-2 gap-y-4 justify-center">
-                  {sentence.words.map((wordObj, wIdx) => {
-                    const isWordActive = currentTime >= wordObj.startTime && currentTime <= wordObj.endTime;
-                    return (
-                      <motion.span
-                        key={wIdx}
-                        onClick={(e) => handleWordClick(wordObj, e)}
-                        className={`
-                          text-2xl md:text-3xl font-black cursor-pointer transition-all duration-300 rounded-xl px-1.5 py-0.5 relative
-                          ${isWordActive 
-                            ? 'text-primary' 
-                            : 'text-slate-800'}
-                        `}
-                      >
-                        {isWordActive && (
-                          <motion.span 
-                            layoutId="glow"
-                            className="absolute inset-0 bg-primary/20 blur-md rounded-full -z-10"
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                          />
-                        )}
-                        {wordObj.text}
-                      </motion.span>
-                    );
-                  })}
                 </div>
+              )}
 
-                {/* Sentence Translation */}
-                <AnimatePresence>
-                  {showTranslation && (
-                    <motion.div 
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="mt-6 pt-6 border-t border-primary/10 text-center"
-                    >
-                      <p className="text-slate-400 font-medium text-lg leading-relaxed italic">
-                        {sentence.translation || "Translation unavailable"}
-                      </p>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                {/* Progress Indicator per sentence */}
-                {sIdx === activeSentenceIndex && (
-                  <div className="absolute bottom-4 right-6 flex items-center gap-2">
-                    <div className="flex gap-1">
-                      {[1, 2, 3].map(i => (
-                        <div key={i} className={`w-1.5 h-1.5 rounded-full ${i === 1 ? 'bg-primary' : 'bg-slate-200'}`} />
-                      ))}
+              {filteredSentences.map((sentence) => {
+                const sIdx = sentences.findIndex(s => s.id === sentence.id);
+                const isDifficult = difficultSentenceIds.includes(sentence.id);
+                const isCompleted = completedSentenceIds.includes(sentence.id);
+                const isActive = sIdx === activeSentenceIndex;
+                
+                return (
+                  <motion.div
+                    key={sentence.id}
+                    onClick={() => handleSentenceClick(sentence)}
+                    className={`
+                      relative p-10 rounded-[3rem] transition-all duration-500 cursor-pointer group border-2
+                      ${isActive 
+                        ? 'bg-primary/5 shadow-2xl shadow-primary/10 border-primary/30 scale-[1.02]' 
+                        : 'bg-white hover:bg-slate-50 border-transparent'}
+                      ${isDifficult && !isActive ? 'border-rose-100 bg-rose-50/10' : ''}
+                      ${isCompleted && !isActive ? 'opacity-60' : ''}
+                    `}
+                    animate={{
+                      opacity: isActive ? 1 : (difficultMode ? 1 : (isCompleted ? 0.6 : 0.9))
+                    }}
+                  >
+                    {/* Sentence Status Badges */}
+                    <div className="absolute -top-3 left-10 flex gap-2">
+                      {isDifficult && (
+                        <Badge variant="warning" className="rounded-full px-3 py-1 text-[9px] font-black shadow-md uppercase tracking-tighter">Difficult</Badge>
+                      )}
+                      {isCompleted && (
+                        <Badge variant="success" className="rounded-full px-3 py-1 text-[9px] font-black shadow-md uppercase tracking-tighter">Mastered</Badge>
+                      )}
                     </div>
-                    <span className="text-[10px] font-black text-primary uppercase tracking-widest">Active</span>
+
+                    {/* Sentence Controls */}
+                    <div className="absolute -right-6 top-1/2 -translate-y-1/2 flex flex-col gap-3 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-4 group-hover:translate-x-0 z-10">
+                       <button 
+                        onClick={(e) => { e.stopPropagation(); handleSentenceClick(sentence); }}
+                        className="w-12 h-12 rounded-2xl bg-white shadow-xl flex items-center justify-center text-slate-400 hover:text-primary transition-all hover:scale-110 active:scale-95 border border-slate-50"
+                        title="Replay Sentence"
+                       >
+                          <RotateCcw size={18} />
+                       </button>
+                       <button 
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          if (isActive) toggleLoopSentence();
+                          else {
+                            handleSentenceClick(sentence);
+                            setIsLoopingSentence(true);
+                          }
+                        }}
+                        className={`w-12 h-12 rounded-2xl bg-white shadow-xl flex items-center justify-center transition-all hover:scale-110 active:scale-95 border border-slate-50 ${isActive && isLoopingSentence ? 'text-primary' : 'text-slate-400 hover:text-primary'}`}
+                        title="Loop Sentence"
+                       >
+                          <Repeat size={18} />
+                       </button>
+                       <button 
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          onPracticePronunciation?.({
+                            text: sentence.text,
+                            ipa: ''
+                          });
+                          onBack();
+                        }}
+                        className="w-12 h-12 rounded-2xl bg-white shadow-xl flex items-center justify-center text-slate-400 hover:text-primary transition-all hover:scale-110 active:scale-95 border border-slate-50"
+                        title="Practice Pronunciation"
+                       >
+                          <Mic size={18} />
+                       </button>
+                       <button 
+                        onClick={(e) => { e.stopPropagation(); toggleDifficult(sentence.id); }}
+                        className={`w-12 h-12 rounded-2xl bg-white shadow-xl flex items-center justify-center transition-all hover:scale-110 active:scale-95 border border-slate-50 ${isDifficult ? 'text-rose-500' : 'text-slate-400 hover:text-rose-500'}`}
+                        title="Mark as Difficult"
+                       >
+                          <AlertCircle size={18} />
+                       </button>
+                    </div>
+
+                  <div className="flex flex-wrap gap-x-3 gap-y-5 justify-center">
+                    {sentence.words.map((wordObj, wIdx) => {
+                      const isWordActive = currentTime >= wordObj.startTime && currentTime <= wordObj.endTime;
+                      return (
+                        <motion.span
+                          key={wIdx}
+                          onClick={(e) => handleWordClick(wordObj, e)}
+                          className={`
+                            text-3xl md:text-4xl font-black cursor-pointer transition-all duration-300 rounded-2xl px-2 py-1 relative
+                            ${isWordActive 
+                              ? 'text-primary' 
+                              : 'text-slate-800 hover:bg-slate-100'}
+                          `}
+                        >
+                          {isWordActive && (
+                            <motion.span 
+                              layoutId="glow"
+                              className="absolute inset-0 bg-primary/10 blur-xl rounded-full -z-10"
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                            />
+                          )}
+                          {wordObj.text}
+                        </motion.span>
+                      );
+                    })}
                   </div>
-                )}
-              </motion.div>
-            );
-          })
+
+                  {/* Sentence Translation */}
+                  <AnimatePresence>
+                    {showTranslation && (
+                      <motion.div 
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="mt-8 pt-8 border-t border-primary/10 text-center"
+                      >
+                        <p className="text-slate-500 font-medium text-xl leading-relaxed italic">
+                          {sentence.translation || "Translation unavailable"}
+                        </p>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Progress Indicator per sentence */}
+                  {isActive && (
+                    <div className="absolute bottom-6 right-8 flex items-center gap-3">
+                      <div className="flex gap-1.5">
+                        <motion.div 
+                          animate={{ opacity: [0.3, 1, 0.3] }}
+                          transition={{ duration: 1.5, repeat: Infinity }}
+                          className="w-2 h-2 rounded-full bg-primary" 
+                        />
+                        <div className="w-2 h-2 rounded-full bg-slate-200" />
+                        <div className="w-2 h-2 rounded-full bg-slate-200" />
+                      </div>
+                      <span className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">Active</span>
+                    </div>
+                  )}
+                </motion.div>
+              );
+            })}
+          </div>
         )}
       </div>
-    </div>
-  </main>
+    </main>
 
       {/* Floating Controls */}
       <div className="fixed bottom-8 inset-x-0 flex flex-col items-center gap-4 px-6 pointer-events-none">
@@ -759,7 +792,12 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
                <Pause size={10} /> Auto-Pause
              </Badge>
            )}
-           {loopMode !== 'none' && (
+           {isLoopingSentence && (
+             <Badge variant="primary" className="rounded-full px-3 py-1 flex items-center gap-1 shadow-lg">
+               <Repeat size={10} /> Looping Sentence
+             </Badge>
+           )}
+           {loopMode !== 'none' && !isLoopingSentence && (
              <Badge variant="primary" className="rounded-full px-3 py-1 flex items-center gap-1 shadow-lg">
                <Repeat size={10} /> Loop: {loopMode}
              </Badge>
