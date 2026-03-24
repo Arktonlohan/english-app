@@ -43,7 +43,7 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [playbackRate, setPlaybackRate] = useState(1);
-  const [selectedWord, setSelectedWord] = useState<{ word: string; start: number; end: number } | null>(null);
+  const [selectedWord, setSelectedWord] = useState<Word | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [loopMode, setLoopMode] = useState<'none' | 'sentence' | 'paragraph'>('none');
   const [autoPause, setAutoPause] = useState(false);
@@ -319,18 +319,18 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
   const handleSaveWord = async () => {
     if (!selectedWord) return;
     
-    const existingWord = await vocabularyService.getVocabularyWordByText(selectedWord.word);
+    const existingWord = await vocabularyService.getVocabularyWordByText(selectedWord.text);
     if (existingWord) {
       setIsSaved(true);
       return;
     }
     
     const wordToSave = {
-      text: selectedWord.word,
-      ipa: '/ˈwɛlkəm/', 
-      meaning: 'Definition unavailable', 
-      example: 'Example unavailable', 
-      translation: 'Translation unavailable', 
+      text: selectedWord.text,
+      ipa: selectedWord.ipa || '/.../', 
+      meaning: selectedWord.meaning || 'Definition unavailable', 
+      example: selectedWord.example || 'Example unavailable', 
+      translation: selectedWord.translation || 'Translation unavailable', 
       sourceSpeechId: speech.id,
       sourceSentenceId: sentences[activeSentenceIndex]?.id
     };
@@ -937,9 +937,9 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
               
               <div className="flex justify-between items-start mb-10">
                 <div className="space-y-2">
-                  <h3 className="text-5xl font-black text-slate-900 tracking-tight">{selectedWord.word}</h3>
+                  <h3 className="text-5xl font-black text-slate-900 tracking-tight">{selectedWord.text}</h3>
                   <div className="flex items-center gap-4">
-                    <span className="text-xl font-bold text-primary font-mono tracking-widest">/ˈwɛlkəm/</span>
+                    <span className="text-xl font-bold text-primary font-mono tracking-widest">{selectedWord.ipa || '/.../'}</span>
                     <button className="w-10 h-10 rounded-2xl bg-primary/5 text-primary flex items-center justify-center hover:bg-primary/10 transition-colors">
                       <Volume2 size={18} />
                     </button>
@@ -968,13 +968,13 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
                   <div className="p-8 bg-slate-50 rounded-[2.5rem] space-y-3">
                     <h4 className="text-[10px] font-black text-slate-300 uppercase tracking-[0.3em]">Meaning</h4>
                     <p className="text-slate-700 text-xl font-bold leading-tight">
-                      A greeting or reception given to someone upon arrival.
+                      {selectedWord.meaning || 'Definition unavailable'}
                     </p>
                   </div>
                   <div className="p-8 bg-primary/5 rounded-[2.5rem] space-y-3">
                     <h4 className="text-[10px] font-black text-primary/40 uppercase tracking-[0.3em]">Translation</h4>
                     <p className="text-primary text-xl font-black leading-tight">
-                      Bienvenido
+                      {selectedWord.translation || 'Translation unavailable'}
                     </p>
                   </div>
                 </div>
@@ -982,7 +982,7 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
                 <div className="p-8 border-2 border-slate-50 rounded-[2.5rem] relative">
                   <div className="absolute -top-3 left-8 bg-white px-3 text-[10px] font-black text-slate-300 uppercase tracking-[0.3em]">Example</div>
                   <p className="text-slate-500 italic text-xl font-medium leading-relaxed">
-                    "They gave us a warm welcome."
+                    "{selectedWord.example || 'Example unavailable'}"
                   </p>
                 </div>
 
@@ -993,8 +993,8 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
                     onClick={() => {
                       if (selectedWord) {
                         onPracticePronunciation?.({
-                          text: selectedWord.word,
-                          ipa: '/ˈwɛlkəm/'
+                          text: selectedWord.text,
+                          ipa: selectedWord.ipa || '/.../'
                         });
                         onBack(); // Close player to see the new tab
                       }

@@ -21,7 +21,7 @@ export const SpeechCard: React.FC<SpeechCardProps> = ({ speech, onClick }) => {
 
   return (
     <Card 
-      className="overflow-hidden group cursor-pointer border-none"
+      className="overflow-hidden group cursor-pointer border border-white/5 glass-dark hover:border-primary/50 transition-all duration-500"
       onClick={() => onClick(speech)}
     >
       <div className="relative aspect-video overflow-hidden">
@@ -35,7 +35,7 @@ export const SpeechCard: React.FC<SpeechCardProps> = ({ speech, onClick }) => {
           <motion.div 
             initial={{ scale: 0.8, opacity: 0 }}
             whileHover={{ scale: 1.1 }}
-            className="w-12 h-12 rounded-full glass flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-all duration-300"
+            className="w-12 h-12 rounded-full glass flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-all duration-300 shadow-neon"
           >
             <Play size={20} fill="currentColor" />
           </motion.div>
@@ -52,19 +52,19 @@ export const SpeechCard: React.FC<SpeechCardProps> = ({ speech, onClick }) => {
       
       <div className="p-5 space-y-3">
         <div className="flex justify-between items-start gap-2">
-          <h3 className="font-bold text-lg leading-tight group-hover:text-primary transition-colors line-clamp-2">
+          <h3 className="font-bold text-lg leading-tight text-white group-hover:text-primary transition-colors line-clamp-2 glow-text">
             {speech.title}
           </h3>
         </div>
         
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center">
-              <User size={12} className="text-slate-400" />
+            <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center">
+              <User size={12} className="text-soft-gray" />
             </div>
-            <span className="text-xs font-semibold text-slate-500">{speech.speaker}</span>
+            <span className="text-xs font-semibold text-soft-gray">{speech.speaker}</span>
           </div>
-          <Badge variant="secondary">{speech.category}</Badge>
+          <Badge variant="secondary" className="bg-white/5 text-soft-gray border-white/10">{speech.category}</Badge>
         </div>
       </div>
     </Card>

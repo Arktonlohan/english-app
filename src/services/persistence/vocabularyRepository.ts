@@ -104,17 +104,22 @@ class SupabaseVocabularyRepository implements VocabularyRepository {
     return {
       id: word.id.startsWith('v-') ? undefined : word.id,
       user_id: userId,
-      text: word.text,
+      word: word.word,
+      text: word.word, // compatibility
       ipa: word.ipa,
-      meaning: word.meaning,
-      example: word.example,
       translation: word.translation,
+      meaning: word.translation, // compatibility
+      example_sentence: word.exampleSentence,
+      example: word.exampleSentence, // compatibility
       source_speech_id: word.sourceSpeechId,
       source_sentence_id: word.sourceSentenceId,
       mastery: word.mastery,
       srs_level: word.srsLevel?.toUpperCase() || 'NEW',
       next_review: word.nextReview,
       last_reviewed: word.lastReviewed,
+      created_at: word.createdAt,
+      interval: word.interval,
+      ease_factor: word.easeFactor,
       is_difficult: word.isDifficult || false
     };
   }
@@ -122,17 +127,23 @@ class SupabaseVocabularyRepository implements VocabularyRepository {
   private mapFromDb(dbWord: any): VocabularyWord {
     return {
       id: dbWord.id,
-      text: dbWord.text,
+      userId: dbWord.user_id,
+      word: dbWord.word || dbWord.text,
+      text: dbWord.word || dbWord.text,
       ipa: dbWord.ipa,
-      meaning: dbWord.meaning,
-      example: dbWord.example,
-      translation: dbWord.translation,
+      translation: dbWord.translation || dbWord.meaning,
+      meaning: dbWord.translation || dbWord.meaning,
+      exampleSentence: dbWord.example_sentence || dbWord.example,
+      example: dbWord.example_sentence || dbWord.example,
       sourceSpeechId: dbWord.source_speech_id,
       sourceSentenceId: dbWord.source_sentence_id,
       mastery: dbWord.mastery || 0,
+      createdAt: dbWord.created_at,
       addedAt: dbWord.created_at,
       lastReviewed: dbWord.last_reviewed,
       nextReview: dbWord.next_review,
+      interval: dbWord.interval || 0,
+      easeFactor: dbWord.ease_factor || 2.5,
       srsLevel: dbWord.srs_level?.toLowerCase() as any,
       isDifficult: dbWord.is_difficult
     };

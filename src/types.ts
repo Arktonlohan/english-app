@@ -1,6 +1,6 @@
 import React from 'react';
 
-export type TabType = 'home' | 'speeches' | 'shadowing' | 'vocabulary' | 'flashcards' | 'pronunciation' | 'progress';
+export type TabType = 'home' | 'shadowing' | 'videos' | 'vocabulary' | 'flashcards' | 'progress' | 'settings' | 'pronunciation';
 
 export interface PronunciationScore {
   overall: number;
@@ -109,19 +109,27 @@ export enum SRSLevel {
 
 export interface VocabularyWord {
   id: string;
-  text: string;
+  userId: string;
+  word: string;
+  translation: string;
   ipa: string;
-  meaning: string;
-  translation?: string;
-  example: string;
-  mastery: number; // 0 to 100
-  lastReviewed?: string;
-  nextReview?: string;
-  addedAt: string;
+  exampleSentence: string;
+  createdAt: string;
+  nextReview: string;
+  interval: number; // in days
+  easeFactor: number;
+  
+  // Legacy/Compatibility fields
+  text?: string; // mapped to word
+  meaning?: string; // mapped to translation
+  example?: string; // mapped to exampleSentence
+  addedAt?: string; // mapped to createdAt
+  mastery?: number;
   srsLevel?: SRSLevel;
   sourceSpeechId?: string;
   sourceSentenceId?: string;
   isDifficult?: boolean;
+  lastReviewed?: string;
 }
 
 export interface FlashcardStats {

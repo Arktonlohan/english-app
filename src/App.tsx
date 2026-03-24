@@ -5,6 +5,7 @@ import { Navigation } from './components/Navigation';
 import { HomePage } from './pages/HomePage';
 import { ShadowingPage } from './pages/ShadowingPage';
 import { ProgressPage } from './pages/ProgressPage';
+import SettingsPage from './pages/SettingsPage';
 import { SpeechesPage } from './pages/SpeechesPage';
 import { VocabularyPage } from './pages/VocabularyPage';
 import { FlashcardsPage } from './pages/FlashcardsPage';
@@ -35,16 +36,16 @@ function AppContent() {
     return (
       <motion.div
         key={activeTab}
-        initial={{ opacity: 0, x: 20 }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: -20 }}
-        transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -10 }}
+        transition={{ duration: 0.3 }}
       >
         {(() => {
           switch (activeTab) {
             case 'home': return <HomePage {...props} />;
-            case 'speeches': return <SpeechesPage onSelectSpeech={setSelectedSpeech} />;
             case 'shadowing': return <ShadowingPage onSelectSpeech={setSelectedSpeech} />;
+            case 'videos': return <SpeechesPage onSelectSpeech={setSelectedSpeech} />;
             case 'vocabulary': return <VocabularyPage onPracticePronunciation={handlePracticePronunciation} />;
             case 'flashcards': return <FlashcardsPage />;
             case 'pronunciation': return (
@@ -54,6 +55,7 @@ function AppContent() {
               />
             );
             case 'progress': return <ProgressPage />;
+            case 'settings': return <SettingsPage />;
             default: return <HomePage {...props} />;
           }
         })()}
@@ -63,23 +65,35 @@ function AppContent() {
 
   if (status === 'loading') {
     return (
-      <div className="min-h-screen bg-white flex flex-col items-center justify-center p-8 text-center space-y-8 overflow-hidden">
-        <Logo size="xl" />
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-8 text-center space-y-8 overflow-hidden relative">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-transparent to-accent/20 animate-pulse" />
+        
+        <div className="relative z-10 space-y-6">
+          <Logo size="xl" />
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            <h1 className="text-5xl font-display font-bold gradient-text glow-text">Falai</h1>
+            <p className="text-soft-pink font-medium tracking-widest uppercase text-xs mt-2">Speak Like a Native</p>
+          </motion.div>
+        </div>
         
         <motion.div
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           transition={{ delay: 0.4, duration: 0.8 }}
-          className="space-y-3"
+          className="relative z-10 space-y-3"
         >
-          <div className="flex flex-col items-center gap-2">
-            <p className="text-slate-400 font-medium text-lg">Your journey to fluency begins...</p>
-            <div className="w-48 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+          <div className="flex flex-col items-center gap-4">
+            <p className="text-slate-400 font-medium">Your journey to fluency begins...</p>
+            <div className="w-48 h-1 bg-white/10 rounded-full overflow-hidden">
               <motion.div 
                 initial={{ x: '-100%' }}
                 animate={{ x: '100%' }}
                 transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-                className="w-1/2 h-full bg-gradient-to-r from-transparent via-primary to-transparent"
+                className="w-1/2 h-full bg-gradient-to-r from-transparent via-neon-cyan to-transparent"
               />
             </div>
           </div>

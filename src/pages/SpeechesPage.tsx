@@ -46,27 +46,27 @@ export const SpeechesPage: React.FC<SpeechesPageProps> = ({ onSelectSpeech }) =>
             <LayoutGrid size={20} />
             <span className="text-xs font-bold uppercase tracking-widest">Library</span>
           </div>
-          <h1 className="text-4xl font-bold font-display tracking-tight leading-tight">
-            Explore <span className="gradient-text">Speeches</span>
+          <h1 className="text-4xl font-bold font-display tracking-tight leading-tight text-white">
+            Explore <span className="gradient-text">Videos</span>
           </h1>
-          <p className="text-slate-500 text-sm font-medium">Find the perfect content to practice your fluency.</p>
+          <p className="text-soft-gray text-sm font-medium">Find the perfect content to practice your fluency.</p>
         </motion.div>
         
         <div className="relative group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors" size={18} />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-soft-gray group-focus-within:text-primary transition-colors" size={18} />
           <input 
             type="text" 
-            placeholder="Search speeches or speakers..."
+            placeholder="Search videos or speakers..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-white border border-slate-200 rounded-[1.5rem] py-4 pl-12 pr-4 text-sm focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all shadow-sm"
+            className="w-full bg-white/5 border border-white/10 rounded-[1.5rem] py-4 pl-12 pr-4 text-sm text-white focus:outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all shadow-neon"
           />
         </div>
       </header>
 
       <div className="space-y-8">
         <section className="space-y-4">
-          <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+          <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-soft-gray">
             <Filter size={12} />
             Filter by Category
           </div>
@@ -80,8 +80,8 @@ export const SpeechesPage: React.FC<SpeechesPageProps> = ({ onSelectSpeech }) =>
                 onClick={() => setSelectedCategory(cat)}
                 className={`px-6 py-2.5 rounded-2xl text-xs font-bold whitespace-nowrap transition-all ${
                   selectedCategory === cat 
-                    ? 'gradient-primary text-white shadow-lg shadow-primary/25' 
-                    : 'bg-white border border-slate-100 text-slate-500 hover:bg-slate-50'
+                    ? 'gradient-primary text-white shadow-neon' 
+                    : 'bg-white/5 border border-white/10 text-soft-gray hover:bg-white/10'
                 }`}
               >
                 {cat}
@@ -91,7 +91,7 @@ export const SpeechesPage: React.FC<SpeechesPageProps> = ({ onSelectSpeech }) =>
         </section>
 
         <section className="space-y-4">
-          <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+          <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-soft-gray">
             <BarChart size={12} />
             Difficulty Level
           </div>
@@ -105,8 +105,8 @@ export const SpeechesPage: React.FC<SpeechesPageProps> = ({ onSelectSpeech }) =>
                 onClick={() => setSelectedDifficulty(diff)}
                 className={`flex-1 py-2.5 rounded-2xl text-xs font-bold transition-all border ${
                   selectedDifficulty === diff 
-                    ? 'bg-primary/10 border-primary text-primary' 
-                    : 'bg-white border-slate-100 text-slate-500 hover:border-slate-300'
+                    ? 'bg-primary/20 border-primary text-primary shadow-neon' 
+                    : 'bg-white/5 border-white/10 text-soft-gray hover:border-white/20'
                 }`}
               >
                 {diff}
@@ -117,8 +117,8 @@ export const SpeechesPage: React.FC<SpeechesPageProps> = ({ onSelectSpeech }) =>
 
         <section className="space-y-6">
           <div className="flex justify-between items-center">
-            <h2 className="text-xl font-bold font-display tracking-tight">Recommended for you</h2>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{filteredSpeeches.length} Results</span>
+            <h2 className="text-xl font-bold font-display tracking-tight text-white">Recommended for you</h2>
+            <span className="text-[10px] font-bold text-soft-gray uppercase tracking-widest">{filteredSpeeches.length} Results</span>
           </div>
           
           <div className="grid gap-8">
@@ -126,10 +126,10 @@ export const SpeechesPage: React.FC<SpeechesPageProps> = ({ onSelectSpeech }) =>
               {isLoading ? (
                 [1, 2, 3].map(i => (
                   <div key={i} className="space-y-4">
-                    <Skeleton className="aspect-video w-full rounded-[2rem]" />
+                    <Skeleton className="aspect-video w-full rounded-[2rem] bg-white/5" />
                     <div className="space-y-2 px-2">
-                      <Skeleton className="h-6 w-3/4" />
-                      <Skeleton className="h-4 w-1/2" />
+                      <Skeleton className="h-6 w-3/4 bg-white/5" />
+                      <Skeleton className="h-4 w-1/2 bg-white/5" />
                     </div>
                   </div>
                 ))
@@ -158,15 +158,16 @@ export const SpeechesPage: React.FC<SpeechesPageProps> = ({ onSelectSpeech }) =>
                 animate={{ opacity: 1 }}
                 className="text-center py-20 space-y-4"
               >
-                <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto">
-                  <Search className="text-slate-300" size={32} />
+                <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mx-auto">
+                  <Search className="text-white/20" size={32} />
                 </div>
                 <div className="space-y-1">
-                  <p className="font-bold text-lg">No speeches found</p>
-                  <p className="text-slate-400 text-sm">Try adjusting your filters or search query.</p>
+                  <p className="font-bold text-lg text-white">No videos found</p>
+                  <p className="text-soft-gray text-sm">Try adjusting your filters or search query.</p>
                 </div>
                 <Button 
                   variant="outline"
+                  className="border-white/10 text-white hover:bg-white/5"
                   onClick={() => { setSelectedCategory('All'); setSelectedDifficulty('All'); setSearchQuery(''); }}
                 >
                   Clear all filters

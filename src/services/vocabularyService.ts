@@ -50,7 +50,10 @@ class VocabularyService {
     return this.words;
   }
 
-  getDueCards(): VocabularyWord[] {
+  async getDueCards(): Promise<VocabularyWord[]> {
+    if (!this.isLoaded && this.currentUserId) {
+      await this.loadWords(this.currentUserId);
+    }
     const now = new Date();
     return this.words.filter(word => {
       if (!word.nextReview) return true;
@@ -60,7 +63,11 @@ class VocabularyService {
 
   getStats(): FlashcardStats {
     const allWords = this.words;
-    const dueToday = this.getDueCards().length;
+    const now = new Date();
+    const dueToday = allWords.filter(word => {
+      if (!word.nextReview) return true;
+      return new Date(word.nextReview) <= now;
+    }).length;
     
     const newCount = allWords.filter(w => !w.srsLevel || w.srsLevel === SRSLevel.NEW).length;
     const learningCount = allWords.filter(w => w.srsLevel === SRSLevel.LEARNING).length;
@@ -97,19 +104,27 @@ class VocabularyService {
 
     const newWord: VocabularyWord = {
       id: `v-${Date.now()}`,
-      text: word.text || '',
+      userId,
+      word: word.word || word.text || '',
+      translation: word.translation || word.meaning || '',
       ipa: word.ipa || '',
-      meaning: word.meaning || '',
-      example: word.example || '',
-      translation: word.translation || '',
-      mastery: 0,
-      addedAt: new Date().toISOString(),
+      exampleSentence: word.exampleSentence || word.example || '',
+      createdAt: new Date().toISOString(),
       nextReview: new Date().toISOString(),
+      interval: 0,
+      easeFactor: 2.5,
+      mastery: 0,
       srsLevel: SRSLevel.NEW,
       sourceSpeechId: word.sourceSpeechId,
       sourceSentenceId: word.sourceSentenceId,
       ...word
     };
+
+    // Compatibility
+    newWord.text = newWord.word;
+    newWord.meaning = newWord.translation;
+    newWord.example = newWord.exampleSentence;
+    newWord.addedAt = newWord.createdAt;
 
     this.words.unshift(newWord);
     await vocabularyRepository.saveWord(userId, newWord);
@@ -126,43 +141,58 @@ class VocabularyService {
 
     const word = this.words[wordIndex];
     let nextReview = new Date();
+    let newInterval = word.interval || 0;
+    let newEaseFactor = word.easeFactor || 2.5;
     let newLevel = word.srsLevel || SRSLevel.NEW;
-    let newMastery = word.mastery || 0;
     let intervalText = '';
 
+    // Simplified Anki-style logic
     switch (difficulty) {
       case 'again':
+        newInterval = 0;
         nextReview.setMinutes(nextReview.getMinutes() + 10);
+        newEaseFactor = Math.max(1.3, newEaseFactor - 0.2);
         newLevel = SRSLevel.LEARNING;
-        newMastery = Math.max(0, newMastery - 10);
         intervalText = '10m';
         break;
       case 'hard':
-        nextReview.setDate(nextReview.getDate() + 1);
+        newInterval = newInterval === 0 ? 0.5 : newInterval * 1.2;
+        nextReview.setHours(nextReview.getHours() + (newInterval * 24));
+        newEaseFactor = Math.max(1.3, newEaseFactor - 0.15);
         newLevel = SRSLevel.REVIEW;
-        newMastery = Math.min(100, newMastery + 5);
-        intervalText = '1d';
+        intervalText = newInterval < 1 ? '12h' : `${Math.round(newInterval)}d`;
         break;
       case 'good':
-        nextReview.setDate(nextReview.getDate() + 3);
+        if (newInterval === 0) {
+          newInterval = 1;
+        } else {
+          newInterval = newInterval * newEaseFactor;
+        }
+        nextReview.setDate(nextReview.getDate() + Math.round(newInterval));
         newLevel = SRSLevel.REVIEW;
-        newMastery = Math.min(100, newMastery + 15);
-        intervalText = '3d';
+        intervalText = `${Math.round(newInterval)}d`;
         break;
       case 'easy':
-        nextReview.setDate(nextReview.getDate() + 7);
+        if (newInterval === 0) {
+          newInterval = 4;
+        } else {
+          newInterval = newInterval * newEaseFactor * 1.3;
+        }
+        nextReview.setDate(nextReview.getDate() + Math.round(newInterval));
+        newEaseFactor = newEaseFactor + 0.15;
         newLevel = SRSLevel.MASTERED;
-        newMastery = Math.min(100, newMastery + 25);
-        intervalText = '7d';
+        intervalText = `${Math.round(newInterval)}d`;
         break;
     }
 
-    const updatedWord = {
+    const updatedWord: VocabularyWord = {
       ...word,
       nextReview: nextReview.toISOString(),
       lastReviewed: new Date().toISOString(),
+      interval: newInterval,
+      easeFactor: newEaseFactor,
       srsLevel: newLevel,
-      mastery: newMastery,
+      mastery: Math.min(100, (newInterval / 30) * 100), // Approximate mastery
       isDifficult: difficulty === 'again' || difficulty === 'hard'
     };
 
@@ -178,7 +208,7 @@ class VocabularyService {
   }
 
   getVocabularyWordByText(text: string): VocabularyWord | undefined {
-    return this.words.find(w => w.text.toLowerCase() === text.toLowerCase());
+    return this.words.find(w => (w.word || w.text || '').toLowerCase() === text.toLowerCase());
   }
 
   async removeWord(wordId: string) {
@@ -191,7 +221,7 @@ class VocabularyService {
   }
 
   isWordSaved(text: string): boolean {
-    return this.words.some(w => w.text.toLowerCase() === text.toLowerCase());
+    return this.words.some(w => (w.word || w.text || '').toLowerCase() === text.toLowerCase());
   }
 
   getSavedWordsCountForSpeech(speechId: string): number {

@@ -63,8 +63,8 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({
   return (
     <div className="space-y-8">
       <div className="space-y-2 text-center">
-        <h2 className="text-3xl font-black font-display tracking-tight text-slate-900">Join Fluent</h2>
-        <p className="text-slate-400 font-medium">Start your journey to fluency today.</p>
+        <h2 className="text-3xl font-black font-display tracking-tight text-white">Join Falai</h2>
+        <p className="text-soft-gray font-medium">Start your journey to fluency today.</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -72,7 +72,7 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({
           <motion.div 
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="p-4 bg-rose-50 border border-rose-100 rounded-2xl text-rose-600 text-sm font-bold text-center"
+            className="p-4 bg-soft-pink/10 border border-soft-pink/20 rounded-2xl text-soft-pink text-sm font-bold text-center"
           >
             {error}
           </motion.div>
@@ -85,7 +85,8 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({
             placeholder="name@example.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            icon={<Mail size={18} />}
+            icon={<Mail size={18} className="text-primary" />}
+            className="bg-white/5 border-white/10 text-white placeholder:text-white/20"
             required
           />
 
@@ -96,14 +97,15 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              icon={<Lock size={18} />}
+              icon={<Lock size={18} className="text-primary" />}
+              className="bg-white/5 border-white/10 text-white placeholder:text-white/20"
               required
             />
             <div className="flex justify-between items-center px-1">
               <button 
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-primary transition-colors flex items-center gap-1"
+                className="text-[10px] font-black uppercase tracking-widest text-soft-gray hover:text-primary transition-colors flex items-center gap-1"
               >
                 {showPassword ? <EyeOff size={12} /> : <Eye size={12} />}
                 {showPassword ? 'Hide' : 'Show'}
@@ -117,25 +119,26 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({
             placeholder="••••••••"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
-            icon={<Lock size={18} />}
+            icon={<Lock size={18} className="text-primary" />}
+            className="bg-white/5 border-white/10 text-white placeholder:text-white/20"
             error={confirmPassword && !passwordsMatch ? "Passwords don't match" : undefined}
             required
           />
 
           {/* Password Strength Checklist */}
           {password && (
-            <div className="grid grid-cols-1 gap-2 p-4 bg-slate-50 rounded-2xl">
+            <div className="grid grid-cols-1 gap-2 p-4 bg-white/5 rounded-2xl border border-white/5">
               <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
-                {passwordStrength.length ? <Check size={12} className="text-emerald-500" /> : <X size={12} className="text-slate-300" />}
-                <span className={passwordStrength.length ? 'text-emerald-600' : 'text-slate-400'}>Min 8 characters</span>
+                {passwordStrength.length ? <Check size={12} className="text-neon-cyan" /> : <X size={12} className="text-soft-gray" />}
+                <span className={passwordStrength.length ? 'text-neon-cyan' : 'text-soft-gray'}>Min 8 characters</span>
               </div>
               <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
-                {passwordStrength.number ? <Check size={12} className="text-emerald-500" /> : <X size={12} className="text-slate-300" />}
-                <span className={passwordStrength.number ? 'text-emerald-600' : 'text-slate-400'}>At least one number</span>
+                {passwordStrength.number ? <Check size={12} className="text-neon-cyan" /> : <X size={12} className="text-soft-gray" />}
+                <span className={passwordStrength.number ? 'text-neon-cyan' : 'text-soft-gray'}>At least one number</span>
               </div>
               <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest">
-                {passwordStrength.special ? <Check size={12} className="text-emerald-500" /> : <X size={12} className="text-slate-300" />}
-                <span className={passwordStrength.special ? 'text-emerald-600' : 'text-slate-400'}>At least one special char</span>
+                {passwordStrength.special ? <Check size={12} className="text-neon-cyan" /> : <X size={12} className="text-soft-gray" />}
+                <span className={passwordStrength.special ? 'text-neon-cyan' : 'text-soft-gray'}>At least one special char</span>
               </div>
             </div>
           )}
@@ -148,10 +151,10 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({
                 onChange={(e) => setAgreeToTerms(e.target.checked)}
                 className="peer sr-only"
               />
-              <div className="w-5 h-5 border-2 border-slate-200 rounded-lg bg-white peer-checked:bg-primary peer-checked:border-primary transition-all" />
+              <div className="w-5 h-5 border-2 border-white/10 rounded-lg bg-white/5 peer-checked:bg-primary peer-checked:border-primary transition-all" />
               <Check size={14} className="absolute inset-0 m-auto text-white opacity-0 peer-checked:opacity-100 transition-opacity" />
             </div>
-            <span className="text-xs font-bold text-slate-400 leading-relaxed">
+            <span className="text-xs font-bold text-soft-gray leading-relaxed">
               I agree to the <button type="button" className="text-primary hover:underline">Terms of Service</button> and <button type="button" className="text-primary hover:underline">Privacy Policy</button>.
             </span>
           </label>
@@ -159,7 +162,7 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({
 
         <Button 
           type="submit" 
-          className="w-full py-4 rounded-2xl" 
+          className="w-full py-4 rounded-2xl gradient-primary shadow-neon text-white font-bold" 
           isLoading={isLoading}
           disabled={!isFormValid}
         >
@@ -169,24 +172,24 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({
 
       <div className="relative">
         <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-slate-100"></div>
+          <div className="w-full border-t border-white/5"></div>
         </div>
         <div className="relative flex justify-center text-xs uppercase tracking-widest font-black">
-          <span className="bg-white px-4 text-slate-300">Or continue with</span>
+          <span className="bg-slate-900/50 backdrop-blur-sm px-4 text-soft-gray">Or continue with</span>
         </div>
       </div>
 
       <Button 
         variant="outline" 
-        className="w-full py-4 rounded-2xl border-slate-100 text-slate-600"
+        className="w-full py-4 rounded-2xl border-white/10 bg-white/5 text-white hover:bg-white/10"
         onClick={handleGoogleSignUp}
         disabled={isLoading}
       >
-        <Chrome size={18} className="mr-2" />
+        <Chrome size={18} className="mr-2 text-neon-cyan" />
         Google
       </Button>
 
-      <p className="text-center text-sm font-bold text-slate-400">
+      <p className="text-center text-sm font-bold text-soft-gray">
         Already have an account?{' '}
         <button 
           onClick={onSwitchToLogin}
