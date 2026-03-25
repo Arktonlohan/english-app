@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
-import { Mail, Lock, Eye, EyeOff, Chrome } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, Chrome, AlertCircle } from 'lucide-react';
 import { Button, Input } from '../UI';
 import { useAuth } from '../../context/AuthContext';
+import { isSupabaseConfigured } from '../../lib/supabase';
 
 interface LoginFormProps {
   onSwitchToSignUp: () => void;
@@ -36,9 +37,11 @@ export const LoginForm: React.FC<LoginFormProps> = ({
 
   const handleGoogleSignIn = async () => {
     setIsLoading(true);
+    setError(null);
     try {
       await loginWithGoogle();
     } catch (err: any) {
+      console.error('Google Auth Error:', err);
       setError(err.message || 'Google sign-in failed');
     } finally {
       setIsLoading(false);
@@ -124,15 +127,24 @@ export const LoginForm: React.FC<LoginFormProps> = ({
         </div>
       </div>
 
-      <Button 
-        variant="outline" 
-        className="w-full py-4 rounded-2xl border-white/10 bg-white/5 text-white hover:bg-white/10"
-        onClick={handleGoogleSignIn}
-        disabled={isLoading}
-      >
-        <Chrome size={18} className="mr-2 text-neon-cyan" />
-        Google
-      </Button>
+      <div className="space-y-3">
+        <Button 
+          variant="outline" 
+          className={`w-full py-4 rounded-2xl border-white/10 bg-white/5 text-white hover:bg-white/10 ${!isSupabaseConfigured ? 'opacity-50 grayscale cursor-not-allowed' : ''}`}
+          onClick={handleGoogleSignIn}
+          disabled={isLoading}
+        >
+          <Chrome size={18} className="mr-2 text-neon-cyan" />
+          Google
+        </Button>
+        
+        {!isSupabaseConfigured && (
+          <div className="flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-soft-pink/60">
+            <AlertCircle size={12} />
+            <span>Google Login not configured</span>
+          </div>
+        )}
+      </div>
 
       <p className="text-center text-sm font-bold text-soft-gray">
         Don't have an account?{' '}

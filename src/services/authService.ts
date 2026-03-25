@@ -288,8 +288,8 @@ class AuthService {
       });
       if (error) throw error;
     } else {
-      // Mock Google Login
-      await this.signUp('google.user@example.com', 'password', 'Google Explorer');
+      // Do not auto-login with mock account
+      throw new Error('Google Authentication is not configured for this environment.');
     }
   }
 

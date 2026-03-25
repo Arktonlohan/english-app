@@ -64,9 +64,6 @@ export const HomePage: React.FC<HomePageProps> = ({ onTabChange, onSelectSpeech 
       <header className="flex justify-between items-center">
         <div className="flex items-center gap-2">
           <Logo size="sm" />
-          <div className="hidden sm:block">
-            <p className="text-xs font-black gradient-text tracking-[0.2em] uppercase">Falai</p>
-          </div>
         </div>
         <div className="flex items-center gap-3">
           <div className="text-right hidden sm:block">

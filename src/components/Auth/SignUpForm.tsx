@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Mail, Lock, Eye, EyeOff, Chrome, Check, X } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, Chrome, Check, X, AlertCircle } from 'lucide-react';
 import { Button, Input } from '../UI';
 import { useAuth } from '../../context/AuthContext';
+import { isSupabaseConfigured } from '../../lib/supabase';
 
 interface SignUpFormProps {
   onSwitchToLogin: () => void;
@@ -51,9 +52,11 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({
 
   const handleGoogleSignUp = async () => {
     setIsLoading(true);
+    setError(null);
     try {
       await loginWithGoogle();
     } catch (err: any) {
+      console.error('Google Auth Error:', err);
       setError(err.message || 'Google sign-up failed');
     } finally {
       setIsLoading(false);
@@ -179,15 +182,24 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({
         </div>
       </div>
 
-      <Button 
-        variant="outline" 
-        className="w-full py-4 rounded-2xl border-white/10 bg-white/5 text-white hover:bg-white/10"
-        onClick={handleGoogleSignUp}
-        disabled={isLoading}
-      >
-        <Chrome size={18} className="mr-2 text-neon-cyan" />
-        Google
-      </Button>
+      <div className="space-y-3">
+        <Button 
+          variant="outline" 
+          className={`w-full py-4 rounded-2xl border-white/10 bg-white/5 text-white hover:bg-white/10 ${!isSupabaseConfigured ? 'opacity-50 grayscale cursor-not-allowed' : ''}`}
+          onClick={handleGoogleSignUp}
+          disabled={isLoading}
+        >
+          <Chrome size={18} className="mr-2 text-neon-cyan" />
+          Google
+        </Button>
+        
+        {!isSupabaseConfigured && (
+          <div className="flex items-center justify-center gap-2 text-[10px] font-black uppercase tracking-widest text-soft-pink/60">
+            <AlertCircle size={12} />
+            <span>Google Login not configured</span>
+          </div>
+        )}
+      </div>
 
       <p className="text-center text-sm font-bold text-soft-gray">
         Already have an account?{' '}

@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { Button, Card, Badge } from '../components/UI';
 import { pronunciationService } from '../services/pronunciationService';
+import { speechService } from '../services/speechService';
 import { PronunciationAttempt, PronunciationPracticeItem, PronunciationScore } from '../types';
 
 type ViewState = 'list' | 'practice' | 'analyzing' | 'result';
@@ -39,7 +40,7 @@ export const PronunciationPage: React.FC<PronunciationPageProps> = ({ initialIte
   const [currentAttempt, setCurrentAttempt] = useState<PronunciationAttempt | null>(null);
   
   // Recording states
-  const [recordingState, setRecordingState] = useState<'idle' | 'recording' | 'stopped' | 'error'>('idle');
+  const [recordingState, setRecordingState] = useState<'idle' | 'requesting' | 'recording' | 'stopped' | 'recorded' | 'error'>('idle');
   const [recordingTime, setRecordingTime] = useState(0);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [stats, setStats] = useState<any>(null);
@@ -95,14 +96,31 @@ export const PronunciationPage: React.FC<PronunciationPageProps> = ({ initialIte
 
   const startRecording = async () => {
     setMicError(null);
+    setRecordingState('requesting');
+    
     try {
+      // 1. Check browser support
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         throw new Error('BrowserNotSupported');
       }
 
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // 2. Request permission
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch (err: any) {
+        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+          throw new Error('PermissionDenied');
+        } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+          throw new Error('NoDeviceFound');
+        } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+          throw new Error('DeviceInUse');
+        } else {
+          throw err;
+        }
+      }
       
-      // Setup audio analysis for visual feedback
+      // 3. Setup audio analysis for visual feedback
       const audioContext = new AudioContext();
       const source = audioContext.createMediaStreamSource(stream);
       const analyser = audioContext.createAnalyser();
@@ -113,6 +131,7 @@ export const PronunciationPage: React.FC<PronunciationPageProps> = ({ initialIte
       analyserRef.current = analyser;
       
       const updateVolume = () => {
+        if (!analyserRef.current) return;
         const dataArray = new Uint8Array(analyser.frequencyBinCount);
         analyser.getByteFrequencyData(dataArray);
         const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
@@ -121,6 +140,7 @@ export const PronunciationPage: React.FC<PronunciationPageProps> = ({ initialIte
       };
       updateVolume();
 
+      // 4. Start recording
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
@@ -134,7 +154,7 @@ export const PronunciationPage: React.FC<PronunciationPageProps> = ({ initialIte
       mediaRecorder.onstop = () => {
         const blob = new Blob(audioChunksRef.current, { type: 'audio/wav' });
         setAudioBlob(blob);
-        setRecordingState('stopped');
+        setRecordingState('recorded');
       };
 
       mediaRecorder.start();
@@ -149,12 +169,14 @@ export const PronunciationPage: React.FC<PronunciationPageProps> = ({ initialIte
       
       if (err.message === 'BrowserNotSupported') {
         errorMessage = 'Your browser does not support audio recording. Please try a modern browser like Chrome or Safari.';
-      } else if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+      } else if (err.message === 'PermissionDenied') {
         errorMessage = 'Microphone access blocked. Please enable it in your browser settings to practice pronunciation.';
-      } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+      } else if (err.message === 'NoDeviceFound') {
         errorMessage = 'No microphone found. Please connect a microphone and try again.';
-      } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+      } else if (err.message === 'DeviceInUse') {
         errorMessage = 'Microphone is already in use by another application or tab.';
+      } else {
+        errorMessage = `Recording failed: ${err.message || 'Unknown error'}`;
       }
       
       setMicError(errorMessage);
@@ -197,12 +219,13 @@ export const PronunciationPage: React.FC<PronunciationPageProps> = ({ initialIte
     setView('practice');
   };
 
-  const playTargetAudio = () => {
+  const playTargetAudio = async () => {
     if (!selectedItem) return;
-    const utterance = new SpeechSynthesisUtterance(selectedItem.text);
-    utterance.lang = 'en-US';
-    utterance.rate = 0.9;
-    window.speechSynthesis.speak(utterance);
+    try {
+      await speechService.speak(selectedItem.text);
+    } catch (error) {
+      console.error('Failed to play pronunciation:', error);
+    }
   };
 
   const formatTime = (seconds: number) => {
@@ -403,26 +426,37 @@ export const PronunciationPage: React.FC<PronunciationPageProps> = ({ initialIte
             </AnimatePresence>
             <button 
               onClick={recordingState === 'recording' ? stopRecording : startRecording}
-              disabled={recordingState === 'stopped'}
+              disabled={recordingState === 'recorded' || recordingState === 'requesting'}
               className={`w-28 h-28 rounded-full flex items-center justify-center transition-all relative z-10 ${
                 recordingState === 'recording' 
                   ? 'bg-rose-500 text-white shadow-2xl shadow-rose-200 scale-95' 
-                  : recordingState === 'stopped'
+                : recordingState === 'requesting'
+                  ? 'bg-primary/20 text-primary animate-pulse cursor-wait'
+                : recordingState === 'recorded'
                   ? 'bg-slate-100 text-slate-300 cursor-not-allowed'
+                : recordingState === 'error'
+                  ? 'bg-rose-100 text-rose-500 border-2 border-rose-200'
                   : 'bg-primary text-white shadow-2xl shadow-primary/30 hover:scale-105 active:scale-95'
               }`}
             >
-              {recordingState === 'recording' ? <Square size={36} fill="white" /> : <Mic size={36} />}
+              {recordingState === 'recording' ? <Square size={36} fill="white" /> : 
+               recordingState === 'requesting' ? <Activity size={36} className="animate-pulse" /> :
+               recordingState === 'error' ? <AlertCircle size={36} /> :
+               <Mic size={36} />}
             </button>
           </div>
           
           <div className="space-y-2">
             <p className={`text-xs font-black uppercase tracking-[0.2em] ${
               recordingState === 'recording' ? 'text-rose-500 animate-pulse' : 
-              recordingState === 'stopped' ? 'text-emerald-500' : 'text-slate-400'
+              recordingState === 'requesting' ? 'text-primary animate-pulse' :
+              recordingState === 'recorded' ? 'text-emerald-500' : 
+              recordingState === 'error' ? 'text-rose-500' : 'text-slate-400'
             }`}>
               {recordingState === 'recording' ? 'Recording Voice...' : 
-               recordingState === 'stopped' ? 'Recording Captured' : 'Tap to Start Recording'}
+               recordingState === 'requesting' ? 'Requesting Mic...' :
+               recordingState === 'recorded' ? 'Recording Captured' : 
+               recordingState === 'error' ? 'Recording Error' : 'Tap to Start Recording'}
             </p>
             {recordingState === 'recording' && (
               <p className="text-3xl font-mono font-black text-slate-900">{formatTime(recordingTime)}</p>
@@ -431,14 +465,24 @@ export const PronunciationPage: React.FC<PronunciationPageProps> = ({ initialIte
         </div>
 
         {micError && (
-          <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl flex items-center gap-3 text-rose-600 text-sm font-medium">
-            <AlertCircle size={18} />
-            {micError}
+          <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl flex flex-col gap-3 text-rose-600 text-sm font-medium">
+            <div className="flex items-center gap-3">
+              <AlertCircle size={18} />
+              <span className="flex-1 text-left">{micError}</span>
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="w-full border-rose-200 text-rose-600 hover:bg-rose-100"
+              onClick={startRecording}
+            >
+              Try Again
+            </Button>
           </div>
         )}
       </Card>
 
-      {audioBlob && recordingState === 'stopped' && (
+      {audioBlob && recordingState === 'recorded' && (
         <motion.div 
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}

@@ -3,9 +3,9 @@ import { motion, AnimatePresence } from 'motion/react';
 import YouTube, { YouTubeProps, YouTubePlayer } from 'react-youtube';
 import { Speech, Sentence, Word, Transcript } from '../types';
 import { Button, Card, Badge } from './UI';
+import { speechService } from '../services/speechService';
 import { vocabularyService } from '../services/vocabularyService';
 import { progressService } from '../services/progressService';
-import { speechService } from '../services/speechService';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { 
   Play, 
@@ -385,16 +385,12 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
     setShowSizeControl(false);
   };
 
-  const speakWord = (text: string) => {
-    if (!window.speechSynthesis) return;
-    
-    // Cancel any ongoing speech
-    window.speechSynthesis.cancel();
-    
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'en-US'; // Default to English for now
-    utterance.rate = 0.9;
-    window.speechSynthesis.speak(utterance);
+  const speakWord = async (text: string) => {
+    try {
+      await speechService.speak(text);
+    } catch (error) {
+      console.error('Failed to play pronunciation:', error);
+    }
   };
 
   const toggleDifficult = async (sentenceId: string) => {

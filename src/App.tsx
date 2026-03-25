@@ -69,7 +69,7 @@ function AppContent() {
         <div className="absolute inset-0 bg-gradient-to-br from-primary/20 via-transparent to-accent/20 animate-pulse" />
         
         <div className="relative z-10 space-y-6">
-          <Logo size="xl" />
+          <Logo size="xl" showText={false} />
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}

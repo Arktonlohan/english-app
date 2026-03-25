@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { vocabularyService } from '../services/vocabularyService';
 import { authService } from '../services/authService';
+import { speechService } from '../services/speechService';
 import { Card, Button, Skeleton, Badge } from '../components/UI';
 import { SRSLevel, VocabularyWord } from '../types';
 import { Search, Volume2, Bookmark, Trash2, ChevronRight, Sparkles, BookOpen, Filter, Link as LinkIcon, Mic, Languages } from 'lucide-react';
@@ -35,6 +36,15 @@ export const VocabularyPage: React.FC<VocabularyPageProps> = ({ onPracticePronun
     await vocabularyService.removeWord(id);
     const allWords = await vocabularyService.getWords();
     setWords(allWords);
+  };
+
+  const handlePronunciation = async (text: string) => {
+    try {
+      await speechService.speak(text);
+    } catch (error) {
+      console.error('Failed to play pronunciation:', error);
+      // Fallback or user feedback could be added here
+    }
   };
 
   return (
@@ -151,6 +161,7 @@ export const VocabularyPage: React.FC<VocabularyPageProps> = ({ onPracticePronun
                           <motion.button 
                             whileHover={{ scale: 1.1 }}
                             whileTap={{ scale: 0.9 }}
+                            onClick={() => handlePronunciation(word.text || word.word)}
                             className="w-10 h-10 bg-primary/5 text-primary rounded-xl flex items-center justify-center hover:bg-primary/10 transition-colors"
                           >
                             <Volume2 size={16} />

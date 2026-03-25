@@ -106,6 +106,9 @@ class SpeechService {
   /**
    * Generates a mock transcript for testing fallbacks and loading states
    */
+  /**
+   * Generates a mock transcript for testing fallbacks and loading states
+   */
   generateMockTranscript(speechId: string): Transcript {
     return {
       speechId,
@@ -173,6 +176,31 @@ class SpeechService {
         }
       ]
     };
+  }
+
+  /**
+   * Speaks the given text using browser speech synthesis
+   */
+  async speak(text: string): Promise<void> {
+    return new Promise((resolve, reject) => {
+      if (!window.speechSynthesis) {
+        reject(new Error('Speech synthesis not supported in this browser.'));
+        return;
+      }
+
+      // Cancel any ongoing speech
+      window.speechSynthesis.cancel();
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'en-US'; // Default to English
+      utterance.rate = 0.9;
+      utterance.pitch = 1.0;
+
+      utterance.onend = () => resolve();
+      utterance.onerror = (e) => reject(new Error(`Speech synthesis failed: ${e.error}`));
+
+      window.speechSynthesis.speak(utterance);
+    });
   }
 }
 
