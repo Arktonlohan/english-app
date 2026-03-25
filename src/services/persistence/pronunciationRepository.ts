@@ -57,6 +57,7 @@ class SupabasePronunciationRepository implements PronunciationRepository {
         strengths: item.strengths,
         improvements: item.improvements,
         phonemes: item.phonemes,
+        words: item.words,
         duration: item.duration,
         audioUrl: item.audio_url
       }));
@@ -81,6 +82,7 @@ class SupabasePronunciationRepository implements PronunciationRepository {
           strengths: attempt.strengths,
           improvements: attempt.improvements,
           phonemes: attempt.phonemes,
+          words: attempt.words,
           duration: attempt.duration,
           audio_url: attempt.audioUrl
         }]);

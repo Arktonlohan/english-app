@@ -23,7 +23,8 @@ import {
 import { Button, Card, Badge } from '../components/UI';
 import { pronunciationService } from '../services/pronunciationService';
 import { speechService } from '../services/speechService';
-import { PronunciationAttempt, PronunciationPracticeItem, PronunciationScore } from '../types';
+import { vocabularyService } from '../services/vocabularyService';
+import { PronunciationAttempt, PronunciationPracticeItem, PronunciationScore, VocabularyWord } from '../types';
 
 type ViewState = 'list' | 'practice' | 'analyzing' | 'result';
 
@@ -35,6 +36,7 @@ interface PronunciationPageProps {
 export const PronunciationPage: React.FC<PronunciationPageProps> = ({ initialItem, onClearInitialItem }) => {
   const [view, setView] = useState<ViewState>('list');
   const [items, setItems] = useState<PronunciationPracticeItem[]>([]);
+  const [vocabularyWords, setVocabularyWords] = useState<VocabularyWord[]>([]);
   const [selectedItem, setSelectedItem] = useState<PronunciationPracticeItem | null>(null);
   const [attempts, setAttempts] = useState<PronunciationAttempt[]>([]);
   const [currentAttempt, setCurrentAttempt] = useState<PronunciationAttempt | null>(null);
@@ -45,6 +47,8 @@ export const PronunciationPage: React.FC<PronunciationPageProps> = ({ initialIte
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [stats, setStats] = useState<any>(null);
   const [micError, setMicError] = useState<string | null>(null);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isSlowMode, setIsSlowMode] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const timerRef = useRef<number | null>(null);
@@ -71,6 +75,8 @@ export const PronunciationPage: React.FC<PronunciationPageProps> = ({ initialIte
   useEffect(() => {
     const fetchData = async () => {
       setItems(pronunciationService.getPracticeItems());
+      const vocab = await vocabularyService.getWords();
+      setVocabularyWords(vocab);
       const attemptsData = await pronunciationService.getAttempts();
       const statsData = await pronunciationService.getStats();
       setAttempts(attemptsData);
@@ -220,11 +226,15 @@ export const PronunciationPage: React.FC<PronunciationPageProps> = ({ initialIte
   };
 
   const playTargetAudio = async () => {
-    if (!selectedItem) return;
+    if (!selectedItem || isSpeaking) return;
+    
+    setIsSpeaking(true);
     try {
-      await speechService.speak(selectedItem.text);
+      await speechService.speak(selectedItem.text, { slow: isSlowMode });
     } catch (error) {
       console.error('Failed to play pronunciation:', error);
+    } finally {
+      setIsSpeaking(false);
     }
   };
 
@@ -290,6 +300,43 @@ export const PronunciationPage: React.FC<PronunciationPageProps> = ({ initialIte
               <ArrowRight size={14} />
             </div>
           </Card>
+        </div>
+      )}
+
+      {vocabularyWords.length > 0 && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-black text-slate-900 tracking-tight">From Your Vocabulary</h2>
+            <Badge variant="secondary" className="bg-amber-50 text-amber-600 border-none">{vocabularyWords.length} Words</Badge>
+          </div>
+          
+          <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar -mx-1 px-1">
+            {vocabularyWords.slice(0, 10).map((word) => (
+              <Card 
+                key={word.id}
+                onClick={() => {
+                  setSelectedItem({
+                    id: word.id,
+                    text: word.word || word.text || '',
+                    ipa: word.ipa || '',
+                    type: 'word',
+                    category: 'Vocabulary'
+                  });
+                  setView('practice');
+                }}
+                className="p-4 min-w-[160px] flex-shrink-0 cursor-pointer hover:border-primary/20 transition-all bg-white"
+              >
+                <div className="space-y-2">
+                  <p className="font-black text-slate-900 truncate">{word.word || word.text}</p>
+                  <p className="text-[10px] font-mono text-slate-400 truncate">{word.ipa || '/.../'}</p>
+                  <div className="flex items-center gap-1 text-primary">
+                    <span className="text-[10px] font-black uppercase tracking-widest">Practice</span>
+                    <ArrowRight size={10} />
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
         </div>
       )}
 
@@ -374,111 +421,177 @@ export const PronunciationPage: React.FC<PronunciationPageProps> = ({ initialIte
 
   const renderPractice = () => (
     <div className="space-y-8 pb-10">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="sm" className="p-2 h-auto" onClick={() => setView('list')}>
-          <ChevronLeft size={24} />
-        </Button>
-        <h2 className="text-xl font-black text-slate-900 tracking-tight">Practice Session</h2>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="sm" className="p-2 h-auto" onClick={() => setView('list')}>
+            <ChevronLeft size={24} />
+          </Button>
+          <div className="space-y-0.5">
+            <h2 className="text-xl font-black text-slate-900 tracking-tight">Practice Session</h2>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{selectedItem?.category}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={() => setIsSlowMode(!isSlowMode)}
+            className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${
+              isSlowMode ? 'bg-amber-100 text-amber-600 shadow-sm' : 'bg-slate-100 text-slate-400 hover:text-slate-600'
+            }`}
+          >
+            <Activity size={12} className={isSlowMode ? "animate-pulse" : ""} />
+            {isSlowMode ? 'Slow' : 'Normal'}
+          </button>
+          <Badge variant="glass" className="bg-primary/5 text-primary border-none">
+            {selectedItem?.type === 'word' ? 'Word Focus' : 'Sentence Flow'}
+          </Badge>
+        </div>
       </div>
 
-      <Card className="p-10 text-center space-y-8 border-none shadow-2xl shadow-primary/5 relative overflow-hidden">
-        <div className="absolute top-0 right-0 p-4">
-          <Badge variant="secondary" className="bg-slate-50 text-slate-400 border-none">{selectedItem?.category}</Badge>
+      <Card className="p-10 text-center space-y-10 border-none shadow-2xl shadow-primary/5 relative overflow-hidden bg-white">
+        <div className="absolute top-0 left-0 w-full h-1 bg-slate-50">
+          <motion.div 
+            initial={{ width: 0 }}
+            animate={{ width: recordingState === 'recording' ? '100%' : 0 }}
+            transition={{ duration: 10, ease: "linear" }}
+            className="h-full bg-primary"
+          />
         </div>
 
-        <div className="space-y-4">
-          <h1 className="text-4xl font-black text-slate-900 leading-tight">{selectedItem?.text}</h1>
-          {selectedItem?.ipa && (
-            <div className="flex items-center justify-center gap-2">
-              <span className="text-xl font-mono text-primary font-bold tracking-widest">{selectedItem.ipa}</span>
-            </div>
-          )}
-          <button 
-            onClick={playTargetAudio}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-primary/5 text-primary hover:bg-primary/10 transition-colors font-bold text-sm"
-          >
-            <Volume2 size={18} />
-            Listen to Target
-          </button>
+        <div className="space-y-6">
+          <div className="space-y-2">
+            <h1 className="text-5xl font-black text-slate-900 leading-tight tracking-tight">{selectedItem?.text}</h1>
+            {selectedItem?.ipa && (
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-2xl font-mono text-primary/60 font-medium tracking-[0.2em]">{selectedItem.ipa}</span>
+              </div>
+            )}
+          </div>
+          
+          <div className="flex justify-center gap-3">
+            <button 
+              disabled={isSpeaking}
+              onClick={playTargetAudio}
+              className={`inline-flex items-center gap-3 px-8 py-4 rounded-2xl transition-all font-bold text-sm shadow-lg ${
+                isSpeaking 
+                  ? 'bg-primary text-white animate-pulse shadow-primary/20' 
+                  : 'bg-slate-900 text-white hover:bg-slate-800 shadow-slate-200'
+              }`}
+            >
+              <Volume2 size={20} className={isSpeaking ? "animate-bounce" : ""} />
+              {isSpeaking ? 'Speaking...' : 'Listen to Target'}
+            </button>
+          </div>
         </div>
 
-        <div className="flex flex-col items-center gap-8 pt-4">
+        <div className="flex flex-col items-center gap-10 pt-4">
           <div className="relative">
             <AnimatePresence>
               {recordingState === 'recording' && (
                 <>
                   <motion.div 
                     initial={{ scale: 0.8, opacity: 0 }}
-                    animate={{ scale: 1.5 + (volume / 50), opacity: 0.2 }}
+                    animate={{ scale: 1.4 + (volume / 40), opacity: 0.2 }}
                     exit={{ scale: 0.8, opacity: 0 }}
                     transition={{ duration: 0.1 }}
-                    className="absolute inset-0 bg-rose-500 rounded-full"
+                    className="absolute inset-0 bg-primary rounded-full"
                   />
                   <motion.div 
                     initial={{ scale: 0.8, opacity: 0 }}
-                    animate={{ scale: 2 + (volume / 30), opacity: 0.1 }}
+                    animate={{ scale: 1.8 + (volume / 25), opacity: 0.1 }}
                     exit={{ scale: 0.8, opacity: 0 }}
                     transition={{ duration: 0.1 }}
-                    className="absolute inset-0 bg-rose-500 rounded-full"
+                    className="absolute inset-0 bg-primary rounded-full"
                   />
+                  <div className="absolute -top-12 left-1/2 -translate-x-1/2 whitespace-nowrap">
+                    <div className="flex gap-1 items-end h-8">
+                      {[...Array(12)].map((_, i) => (
+                        <motion.div
+                          key={i}
+                          animate={{ height: 4 + (Math.random() * volume / 2) }}
+                          className="w-1 bg-primary rounded-full"
+                        />
+                      ))}
+                    </div>
+                  </div>
                 </>
               )}
             </AnimatePresence>
+            
             <button 
               onClick={recordingState === 'recording' ? stopRecording : startRecording}
               disabled={recordingState === 'recorded' || recordingState === 'requesting'}
-              className={`w-28 h-28 rounded-full flex items-center justify-center transition-all relative z-10 ${
+              className={`w-32 h-32 rounded-full flex items-center justify-center transition-all relative z-10 shadow-2xl ${
                 recordingState === 'recording' 
-                  ? 'bg-rose-500 text-white shadow-2xl shadow-rose-200 scale-95' 
+                  ? 'bg-rose-500 text-white shadow-rose-200 scale-95' 
                 : recordingState === 'requesting'
                   ? 'bg-primary/20 text-primary animate-pulse cursor-wait'
                 : recordingState === 'recorded'
                   ? 'bg-slate-100 text-slate-300 cursor-not-allowed'
                 : recordingState === 'error'
                   ? 'bg-rose-100 text-rose-500 border-2 border-rose-200'
-                  : 'bg-primary text-white shadow-2xl shadow-primary/30 hover:scale-105 active:scale-95'
+                  : 'bg-primary text-white shadow-primary/30 hover:scale-105 active:scale-95'
               }`}
             >
-              {recordingState === 'recording' ? <Square size={36} fill="white" /> : 
-               recordingState === 'requesting' ? <Activity size={36} className="animate-pulse" /> :
-               recordingState === 'error' ? <AlertCircle size={36} /> :
-               <Mic size={36} />}
+              {recordingState === 'recording' ? <Square size={40} fill="white" /> : 
+               recordingState === 'requesting' ? <Activity size={40} className="animate-pulse" /> :
+               recordingState === 'error' ? <AlertCircle size={40} /> :
+               <Mic size={40} />}
             </button>
           </div>
           
-          <div className="space-y-2">
-            <p className={`text-xs font-black uppercase tracking-[0.2em] ${
-              recordingState === 'recording' ? 'text-rose-500 animate-pulse' : 
-              recordingState === 'requesting' ? 'text-primary animate-pulse' :
-              recordingState === 'recorded' ? 'text-emerald-500' : 
-              recordingState === 'error' ? 'text-rose-500' : 'text-slate-400'
-            }`}>
-              {recordingState === 'recording' ? 'Recording Voice...' : 
-               recordingState === 'requesting' ? 'Requesting Mic...' :
-               recordingState === 'recorded' ? 'Recording Captured' : 
-               recordingState === 'error' ? 'Recording Error' : 'Tap to Start Recording'}
-            </p>
+          <div className="space-y-3">
+            <div className="flex flex-col items-center gap-1">
+              <p className={`text-[10px] font-black uppercase tracking-[0.3em] ${
+                recordingState === 'recording' ? 'text-rose-500' : 
+                recordingState === 'requesting' ? 'text-primary' :
+                recordingState === 'recorded' ? 'text-emerald-500' : 
+                recordingState === 'error' ? 'text-rose-500' : 'text-slate-400'
+              }`}>
+                {recordingState === 'recording' ? 'Recording Voice...' : 
+                 recordingState === 'requesting' ? 'Initializing Mic...' :
+                 recordingState === 'recorded' ? 'Voice Captured' : 
+                 recordingState === 'error' ? 'Mic Error' : 'Ready to Record'}
+              </p>
+              <div className="h-1 w-12 bg-slate-100 rounded-full overflow-hidden">
+                {(recordingState === 'recording' || recordingState === 'requesting') && (
+                  <motion.div 
+                    animate={{ x: ['-100%', '100%'] }}
+                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                    className="h-full w-1/2 bg-primary"
+                  />
+                )}
+              </div>
+            </div>
+            
             {recordingState === 'recording' && (
-              <p className="text-3xl font-mono font-black text-slate-900">{formatTime(recordingTime)}</p>
+              <p className="text-4xl font-mono font-black text-slate-900 tabular-nums">{formatTime(recordingTime)}</p>
             )}
           </div>
         </div>
 
         {micError && (
-          <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl flex flex-col gap-3 text-rose-600 text-sm font-medium">
-            <div className="flex items-center gap-3">
-              <AlertCircle size={18} />
-              <span className="flex-1 text-left">{micError}</span>
+          <motion.div 
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="p-6 bg-rose-50 border border-rose-100 rounded-3xl flex flex-col gap-4 text-rose-600"
+          >
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-100 flex items-center justify-center shrink-0">
+                <AlertCircle size={20} />
+              </div>
+              <div className="space-y-1">
+                <p className="font-black text-sm uppercase tracking-widest">Access Denied</p>
+                <p className="text-sm font-medium leading-relaxed opacity-80">{micError}</p>
+              </div>
             </div>
             <Button 
               variant="outline" 
-              size="sm" 
-              className="w-full border-rose-200 text-rose-600 hover:bg-rose-100"
+              className="w-full py-6 rounded-2xl border-rose-200 text-rose-600 hover:bg-rose-100 font-bold"
               onClick={startRecording}
             >
-              Try Again
+              Grant Permission & Retry
             </Button>
-          </div>
+          </motion.div>
         )}
       </Card>
 
@@ -488,36 +601,38 @@ export const PronunciationPage: React.FC<PronunciationPageProps> = ({ initialIte
           animate={{ y: 0, opacity: 1 }}
           className="space-y-4"
         >
-          <div className="flex items-center gap-4 p-6 bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50">
+          <div className="flex items-center gap-5 p-6 bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50">
             <button 
               onClick={() => {
                 const audio = new Audio(URL.createObjectURL(audioBlob));
                 audio.play();
               }}
-              className="w-14 h-14 rounded-2xl bg-primary/10 text-primary flex items-center justify-center hover:bg-primary/20 transition-colors"
+              className="w-16 h-16 rounded-2xl bg-slate-900 text-white flex items-center justify-center hover:bg-slate-800 transition-all shadow-lg shadow-slate-200"
             >
-              <PlayCircle size={28} />
+              <PlayCircle size={32} />
             </button>
-            <div className="flex-1 space-y-1">
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Your Recording</p>
-              <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+            <div className="flex-1 space-y-2">
+              <div className="flex justify-between items-end">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Your Attempt</p>
+                <span className="text-xs font-mono font-bold text-slate-900">{formatTime(recordingTime)}</span>
+              </div>
+              <div className="h-3 bg-slate-50 rounded-full overflow-hidden p-0.5">
                 <motion.div 
                   initial={{ width: 0 }}
                   animate={{ width: '100%' }}
-                  transition={{ duration: recordingTime }}
-                  className="h-full bg-primary" 
+                  transition={{ duration: recordingTime, ease: "linear" }}
+                  className="h-full bg-primary rounded-full" 
                 />
               </div>
             </div>
-            <span className="text-sm font-mono font-bold text-slate-900">{formatTime(recordingTime)}</span>
           </div>
           
           <div className="grid grid-cols-2 gap-4">
-            <Button variant="outline" className="py-7 rounded-[2rem] border-slate-200 text-slate-600 font-bold" onClick={() => setRecordingState('idle')}>
-              <RotateCcw size={20} className="mr-2" /> Retake
+            <Button variant="outline" className="py-8 rounded-[2rem] border-slate-200 text-slate-600 font-black uppercase tracking-widest text-xs" onClick={() => setRecordingState('idle')}>
+              <RotateCcw size={18} className="mr-2" /> Retake
             </Button>
-            <Button className="py-7 rounded-[2rem] gradient-primary shadow-neon text-white font-bold" onClick={analyze}>
-              <Sparkles size={20} className="mr-2" /> Analyze Now
+            <Button className="py-8 rounded-[2rem] gradient-primary shadow-neon text-white font-black uppercase tracking-widest text-xs" onClick={analyze}>
+              <Sparkles size={18} className="mr-2" /> Analyze Now
             </Button>
           </div>
         </motion.div>
@@ -560,7 +675,11 @@ export const PronunciationPage: React.FC<PronunciationPageProps> = ({ initialIte
 
   const renderResult = () => {
     if (!currentAttempt) return null;
-    const { score, feedback, strengths, improvements, phonemes } = currentAttempt;
+    const { score, feedback, strengths, improvements, phonemes, words } = currentAttempt;
+
+    const previousAttempts = attempts.filter(a => a.text === currentAttempt.text && a.id !== currentAttempt.id);
+    const bestScore = previousAttempts.length > 0 ? Math.max(...previousAttempts.map(a => a.score.overall)) : null;
+    const improvement = bestScore !== null ? score.overall - bestScore : null;
 
     return (
       <div className="space-y-8 pb-10">
@@ -568,46 +687,109 @@ export const PronunciationPage: React.FC<PronunciationPageProps> = ({ initialIte
           <Button variant="ghost" size="sm" className="p-2 h-auto" onClick={resetPractice}>
             <ChevronLeft size={24} />
           </Button>
-          <h2 className="text-xl font-black text-slate-900 tracking-tight">Practice Result</h2>
+          <div className="text-center">
+            <h2 className="text-xl font-black text-slate-900 tracking-tight">Analysis Report</h2>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Attempt {attempts.filter(a => a.text === currentAttempt.text).length}</p>
+          </div>
           <Button variant="ghost" size="sm" className="p-2 h-auto" onClick={() => setView('list')}>
             <X size={24} />
           </Button>
         </div>
 
-        <Card className="p-10 text-center space-y-6 border-none bg-gradient-to-br from-primary to-accent text-white shadow-2xl shadow-primary/20 relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-full opacity-10 pointer-events-none">
+        <Card className="p-10 text-center space-y-6 border-none bg-slate-900 text-white shadow-2xl shadow-slate-200 relative overflow-hidden">
+          <div className="absolute top-0 left-0 w-full h-full opacity-5 pointer-events-none">
             <Activity className="w-full h-full scale-150" />
           </div>
           
-          <div className="relative z-10 space-y-2">
-            <p className="text-[10px] font-black uppercase tracking-[0.4em] opacity-70">Overall Accuracy</p>
-            <h1 className="text-8xl font-black tracking-tighter">{score.overall}</h1>
+          <div className="relative z-10 space-y-4">
+            <div className="space-y-1">
+              <p className="text-[10px] font-black uppercase tracking-[0.4em] opacity-50">Pronunciation Score</p>
+              <div className="flex items-center justify-center gap-4">
+                <h1 className="text-8xl font-black tracking-tighter">{score.overall}</h1>
+                {improvement !== null && (
+                  <div className={`flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-black ${improvement >= 0 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
+                    {improvement >= 0 ? <TrendingUp size={14} /> : <TrendingUp size={14} className="rotate-180" />}
+                    {improvement >= 0 ? `+${improvement}` : improvement}
+                  </div>
+                )}
+              </div>
+            </div>
+            
             <div className="flex items-center justify-center gap-2 pt-2">
-              <Badge variant="glass" className="bg-white/20 border-none px-6 py-2 text-sm font-black">
+              <Badge variant="glass" className={`${
+                score.overall >= 90 ? 'bg-emerald-500/20 text-emerald-400' : 
+                score.overall >= 80 ? 'bg-blue-500/20 text-blue-400' : 
+                'bg-amber-500/20 text-amber-400'
+              } border-none px-6 py-2 text-sm font-black`}>
                 {score.overall >= 90 ? 'NATIVE-LIKE' : score.overall >= 80 ? 'PROFICIENT' : 'DEVELOPING'}
               </Badge>
             </div>
+
+            {bestScore !== null && (
+              <div className="pt-4 flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-widest opacity-60">
+                <span>Personal Best: {bestScore}</span>
+                <div className="w-1 h-1 rounded-full bg-white/20" />
+                <span>{improvement !== null && improvement > 0 ? 'New Record!' : 'Keep Pushing'}</span>
+              </div>
+            )}
           </div>
         </Card>
 
+        {/* Detailed Word Breakdown */}
+        <div className="space-y-4">
+          <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Word Breakdown</h3>
+          <div className="flex flex-wrap gap-4">
+            {words?.map((word, idx) => (
+              <div key={idx} className="p-4 bg-white rounded-3xl border border-slate-100 shadow-sm space-y-2 min-w-[120px]">
+                <div className="flex justify-between items-start gap-4">
+                  <span className="text-lg font-black text-slate-900">{word.text}</span>
+                  <span className={`text-xs font-black ${word.score >= 85 ? 'text-emerald-500' : word.score >= 70 ? 'text-amber-500' : 'text-rose-500'}`}>
+                    {word.score}%
+                  </span>
+                </div>
+                <div className="flex gap-1">
+                  {word.syllables.map((syl, sIdx) => (
+                    <div 
+                      key={sIdx} 
+                      className={`px-2 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all ${
+                        syl.score >= 85 ? 'bg-emerald-50 border-emerald-100 text-emerald-600' :
+                        syl.score >= 70 ? 'bg-amber-50 border-amber-100 text-amber-600' :
+                        'bg-rose-50 border-rose-100 text-rose-600'
+                      } ${syl.isStressed ? 'ring-2 ring-primary/20 ring-offset-1' : ''}`}
+                    >
+                      {syl.text}
+                      {syl.isStressed && <span className="ml-1 text-primary">ˈ</span>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
         <div className="grid grid-cols-2 gap-4">
           {[
-            { label: 'Accuracy', val: score.accuracy, color: 'bg-emerald-500' },
-            { label: 'Fluency', val: score.fluency, color: 'bg-blue-500' },
-            { label: 'Stress', val: score.stress, color: 'bg-amber-500' },
-            { label: 'Intonation', val: score.intonation, color: 'bg-purple-500' }
+            { label: 'Accuracy', val: score.accuracy, color: 'bg-emerald-500', icon: <CheckCircle2 size={12} /> },
+            { label: 'Fluency', val: score.fluency, color: 'bg-blue-500', icon: <Activity size={12} /> },
+            { label: 'Stress', val: score.stress, color: 'bg-amber-500', icon: <Sparkles size={12} /> },
+            { label: 'Intonation', val: score.intonation, color: 'bg-purple-500', icon: <TrendingUp size={12} /> }
           ].map((metric) => (
-            <div key={metric.label} className="p-6 bg-white rounded-[2.5rem] border border-slate-100 shadow-sm space-y-3">
+            <div key={metric.label} className="p-6 bg-white rounded-[2.5rem] border border-slate-100 shadow-sm space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{metric.label}</span>
+                <div className="flex items-center gap-2">
+                  <div className={`p-1.5 rounded-lg ${metric.color.replace('bg-', 'bg-')}/10 ${metric.color.replace('bg-', 'text-')}`}>
+                    {metric.icon}
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{metric.label}</span>
+                </div>
                 <span className="text-lg font-black text-slate-900">{metric.val}%</span>
               </div>
-              <div className="h-2 bg-slate-50 rounded-full overflow-hidden">
+              <div className="h-2 bg-slate-50 rounded-full overflow-hidden p-0.5">
                 <motion.div 
                   initial={{ width: 0 }}
                   animate={{ width: `${metric.val}%` }}
                   transition={{ duration: 1, delay: 0.2 }}
-                  className={`h-full ${metric.color}`} 
+                  className={`h-full rounded-full ${metric.color}`} 
                 />
               </div>
             </div>
@@ -615,69 +797,86 @@ export const PronunciationPage: React.FC<PronunciationPageProps> = ({ initialIte
         </div>
 
         <div className="grid grid-cols-1 gap-6">
-          {strengths && strengths.length > 0 && (
-            <div className="space-y-4">
-              <h3 className="text-sm font-black text-emerald-600 uppercase tracking-widest flex items-center gap-2">
-                <CheckCircle2 size={16} /> Key Strengths
-              </h3>
-              <div className="space-y-3">
-                {strengths.map((s, i) => (
-                  <div key={i} className="p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100 text-sm font-medium text-emerald-700">
-                    {s}
+          <div className="space-y-4">
+            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Expert Feedback</h3>
+            <div className="grid grid-cols-1 gap-3">
+              {strengths?.map((s, i) => (
+                <div key={i} className="p-5 bg-emerald-50/30 rounded-3xl border border-emerald-100 flex items-start gap-4">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
+                    <CheckCircle2 size={20} />
                   </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {improvements && improvements.length > 0 && (
-            <div className="space-y-4">
-              <h3 className="text-sm font-black text-amber-600 uppercase tracking-widest flex items-center gap-2">
-                <TrendingUp size={16} /> Areas for Growth
-              </h3>
-              <div className="space-y-3">
-                {improvements.map((s, i) => (
-                  <div key={i} className="p-4 bg-amber-50/50 rounded-2xl border border-amber-100 text-sm font-medium text-amber-700">
-                    {s}
+                  <div className="space-y-1">
+                    <p className="text-xs font-black text-emerald-600 uppercase tracking-widest">Strength</p>
+                    <p className="text-sm font-bold text-slate-700 leading-relaxed">{s}</p>
                   </div>
-                ))}
-              </div>
+                </div>
+              ))}
+              {improvements?.map((s, i) => (
+                <div key={i} className="p-5 bg-amber-50/30 rounded-3xl border border-amber-100 flex items-start gap-4">
+                  <div className="w-10 h-10 rounded-2xl bg-amber-100 flex items-center justify-center text-amber-600 shrink-0">
+                    <TrendingUp size={20} />
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs font-black text-amber-600 uppercase tracking-widest">Improvement</p>
+                    <p className="text-sm font-bold text-slate-700 leading-relaxed">{s}</p>
+                  </div>
+                </div>
+              ))}
             </div>
-          )}
+          </div>
         </div>
 
         {phonemes && phonemes.length > 0 && (
           <div className="space-y-6">
-            <h3 className="text-xl font-black text-slate-900 tracking-tight">Phoneme Breakdown</h3>
+            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Phoneme Analysis</h3>
             <div className="space-y-4">
               {phonemes.map((p, i) => (
                 <div key={i} className="p-6 bg-white rounded-[2.5rem] border border-slate-100 shadow-sm space-y-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-4">
-                      <div className={`w-14 h-14 rounded-2xl flex items-center justify-center font-mono text-2xl font-black ${
+                      <div className={`w-16 h-16 rounded-3xl flex items-center justify-center font-mono text-3xl font-black ${
                         p.isCorrect ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'
                       }`}>
                         /{p.phoneme}/
                       </div>
                       <div>
-                        <p className="text-base font-black text-slate-900">{p.isCorrect ? 'Correct' : 'Incorrect'}</p>
-                        <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Score: {p.score}%</p>
+                        <p className="text-lg font-black text-slate-900">{p.isCorrect ? 'Correct' : 'Needs Work'}</p>
+                        <div className="flex items-center gap-2">
+                          <div className="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div className={`h-full ${p.isCorrect ? 'bg-emerald-500' : 'bg-rose-500'}`} style={{ width: `${p.score}%` }} />
+                          </div>
+                          <span className="text-[10px] font-black text-slate-400">{p.score}%</span>
+                        </div>
                       </div>
                     </div>
-                    {p.isCorrect ? <CheckCircle2 className="text-emerald-500" size={28} /> : <AlertCircle className="text-rose-500" size={28} />}
+                    {p.isCorrect ? <CheckCircle2 className="text-emerald-500" size={24} /> : <AlertCircle className="text-rose-500" size={24} />}
                   </div>
-                  <p className="text-sm font-medium text-slate-500 leading-relaxed">{p.feedback}</p>
+                  <div className={`p-4 rounded-2xl border flex gap-3 ${
+                    p.isCorrect ? 'bg-emerald-50/30 border-emerald-100/50' : 'bg-rose-50/30 border-rose-100/50'
+                  }`}>
+                    <Info size={16} className={`shrink-0 mt-0.5 ${p.isCorrect ? 'text-emerald-500' : 'text-rose-500'}`} />
+                    <div className="space-y-1">
+                      <p className={`text-xs font-bold leading-relaxed ${p.isCorrect ? 'text-emerald-700' : 'text-rose-700'}`}>
+                        {p.feedback}
+                      </p>
+                      {!p.isCorrect && (
+                        <p className="text-[10px] font-medium text-rose-600/70 italic">
+                          Tip: Try placing your tongue slightly differently for a clearer sound.
+                        </p>
+                      )}
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
           </div>
         )}
 
-        <div className="pt-6 flex flex-col gap-4">
-          <Button className="w-full py-7 rounded-[2rem] gradient-primary shadow-neon text-white font-bold" onClick={resetPractice}>
+        <div className="pt-10 flex flex-col gap-4">
+          <Button className="w-full py-8 rounded-[2rem] gradient-primary shadow-neon text-white font-black uppercase tracking-widest text-sm" onClick={resetPractice}>
             Practice Again
           </Button>
-          <Button variant="ghost" className="w-full py-4 text-slate-400 font-bold" onClick={() => setView('list')}>
+          <Button variant="ghost" className="w-full py-4 text-slate-400 font-black uppercase tracking-widest text-[10px]" onClick={() => setView('list')}>
             Back to Library
           </Button>
         </div>

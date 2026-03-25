@@ -14,7 +14,10 @@ export const MOCK_SPEECHES: Speech[] = [
     youtubeUrl: 'https://www.youtube.com/watch?v=eIho2S0ZahI',
     createdAt: '2024-01-01T00:00:00Z',
     readiness: 'ready',
-    sourceType: 'curated'
+    sourceType: 'curated',
+    metadata: {
+      tags: ['Best for pronunciation', 'Deep practice']
+    }
   },
   {
     id: 'ted-2',
@@ -29,7 +32,10 @@ export const MOCK_SPEECHES: Speech[] = [
     youtubeUrl: 'https://www.youtube.com/watch?v=iCvmsMzlF7o',
     createdAt: '2024-01-02T00:00:00Z',
     readiness: 'ready',
-    sourceType: 'curated'
+    sourceType: 'curated',
+    metadata: {
+      tags: ['Emotional intelligence', 'Advanced vocabulary']
+    }
   },
   {
     id: 'ted-3',
@@ -44,7 +50,46 @@ export const MOCK_SPEECHES: Speech[] = [
     youtubeUrl: 'https://www.youtube.com/watch?v=qp0HIF3SfI4',
     createdAt: '2024-01-03T00:00:00Z',
     readiness: 'ready',
-    sourceType: 'curated'
+    sourceType: 'curated',
+    metadata: {
+      tags: ['Leadership', 'Clear articulation']
+    }
+  },
+  {
+    id: 'ted-4',
+    title: 'Inside the mind of a master procrastinator',
+    speaker: 'Tim Urban',
+    category: 'TED Talks',
+    difficulty: 'Intermediate',
+    duration: '14:03',
+    thumbnail: 'https://img.youtube.com/vi/rv7Q7Ot9NVw/maxresdefault.jpg',
+    description: 'Tim Urban knows that procrastination doesn\'t make sense, but he\'s never been able to shake his habit of waiting until the last minute to get things done.',
+    videoId: 'rv7Q7Ot9NVw',
+    youtubeUrl: 'https://www.youtube.com/watch?v=rv7Q7Ot9NVw',
+    createdAt: '2024-01-07T00:00:00Z',
+    readiness: 'ready',
+    sourceType: 'curated',
+    metadata: {
+      tags: ['Humor', 'Best for shadowing beginners']
+    }
+  },
+  {
+    id: 'ted-5',
+    title: 'Your body language may shape who you are',
+    speaker: 'Amy Cuddy',
+    category: 'TED Talks',
+    difficulty: 'Intermediate',
+    duration: '21:02',
+    thumbnail: 'https://img.youtube.com/vi/Ks-_Mh1QhMc/maxresdefault.jpg',
+    description: 'Body language affects how others see us, but it may also change how we see ourselves.',
+    videoId: 'Ks-_Mh1QhMc',
+    youtubeUrl: 'https://www.youtube.com/watch?v=Ks-_Mh1QhMc',
+    createdAt: '2024-01-08T00:00:00Z',
+    readiness: 'ready',
+    sourceType: 'curated',
+    metadata: {
+      tags: ['Confidence', 'Public speaking']
+    }
   },
   {
     id: 'int-1',
@@ -59,7 +104,10 @@ export const MOCK_SPEECHES: Speech[] = [
     youtubeUrl: 'https://www.youtube.com/watch?v=DxREm3s1scA',
     createdAt: '2024-01-04T00:00:00Z',
     readiness: 'ready',
-    sourceType: 'curated'
+    sourceType: 'curated',
+    metadata: {
+      tags: ['Tech', 'Deep practice']
+    }
   },
   {
     id: 'int-2',
@@ -74,7 +122,28 @@ export const MOCK_SPEECHES: Speech[] = [
     youtubeUrl: 'https://www.youtube.com/watch?v=UF8uR6Z6KLc',
     createdAt: '2024-01-05T00:00:00Z',
     readiness: 'ready',
-    sourceType: 'curated'
+    sourceType: 'curated',
+    metadata: {
+      tags: ['Inspirational', 'Best for pronunciation']
+    }
+  },
+  {
+    id: 'int-3',
+    title: 'Matthew McConaughey: The Art of Success',
+    speaker: 'Matthew McConaughey',
+    category: 'Interviews',
+    difficulty: 'Advanced',
+    duration: '12:15',
+    thumbnail: 'https://img.youtube.com/vi/p0p1bjw2fOQ/maxresdefault.jpg',
+    description: 'The Oscar-winning actor shares his philosophy on life, success, and the importance of "greenlights".',
+    videoId: 'p0p1bjw2fOQ',
+    youtubeUrl: 'https://www.youtube.com/watch?v=p0p1bjw2fOQ',
+    createdAt: '2024-01-09T00:00:00Z',
+    readiness: 'ready',
+    sourceType: 'curated',
+    metadata: {
+      tags: ['Storytelling', 'Southern accent']
+    }
   },
   {
     id: 'pod-1',
@@ -89,6 +158,45 @@ export const MOCK_SPEECHES: Speech[] = [
     youtubeUrl: 'https://www.youtube.com/watch?v=pYI_X_Y2mFk',
     createdAt: '2024-01-06T00:00:00Z',
     readiness: 'ready',
-    sourceType: 'curated'
+    sourceType: 'curated',
+    metadata: {
+      tags: ['Everyday English', 'Short practice']
+    }
+  },
+  {
+    id: 'pod-2',
+    title: 'The Diary Of A CEO: How to Master Your Mind',
+    speaker: 'Steven Bartlett',
+    category: 'Podcasts',
+    difficulty: 'Intermediate',
+    duration: '25:10',
+    thumbnail: 'https://img.youtube.com/vi/v2Xp_NfP9pY/maxresdefault.jpg',
+    description: 'Steven Bartlett discusses the psychological frameworks for success and mental resilience.',
+    videoId: 'v2Xp_NfP9pY',
+    youtubeUrl: 'https://www.youtube.com/watch?v=v2Xp_NfP9pY',
+    createdAt: '2024-01-10T00:00:00Z',
+    readiness: 'ready',
+    sourceType: 'curated',
+    metadata: {
+      tags: ['Business', 'British accent']
+    }
+  },
+  {
+    id: 'pod-3',
+    title: 'Huberman Lab: Focus and Productivity',
+    speaker: 'Andrew Huberman',
+    category: 'Podcasts',
+    difficulty: 'Advanced',
+    duration: '30:45',
+    thumbnail: 'https://img.youtube.com/vi/h2aWYjSA1Jw/maxresdefault.jpg',
+    description: 'Science-based tools for improving focus, concentration, and overall productivity.',
+    videoId: 'h2aWYjSA1Jw',
+    youtubeUrl: 'https://www.youtube.com/watch?v=h2aWYjSA1Jw',
+    createdAt: '2024-01-11T00:00:00Z',
+    readiness: 'ready',
+    sourceType: 'curated',
+    metadata: {
+      tags: ['Science', 'Academic vocabulary']
+    }
   }
 ];

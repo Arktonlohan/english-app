@@ -67,53 +67,61 @@ class SpeechService {
    */
   async getTranscript(speechId: string): Promise<Transcript> {
     // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 800));
+    await new Promise(resolve => setTimeout(resolve, 1500));
 
-    // For mock purposes, we'll return unavailable for imported videos by default
-    // This forces the user to choose "Sample Mode" if they want to see the generic transcript
-    if (speechId.startsWith('yt-')) {
-      return {
-        speechId,
-        state: 'unavailable',
-        sentences: []
-      };
+    // 1. Try to fetch from local storage/cache first (In real app, this would be Supabase)
+    
+    // 2. If it's a curated speech, it should have a verified transcript
+    if (!speechId.startsWith('yt-')) {
+      return this.generateMockTranscript(speechId, 'curated');
     }
 
-    // Curated speeches always have transcripts in this mock implementation
-    return this.generateMockTranscript(speechId);
-  }
-
-  /**
-   * Updates the readiness state of a speech based on its transcript
-   */
-  getReadinessFromTranscript(transcript: Transcript): ContentReadiness {
-    switch (transcript.state) {
-      case 'available':
-        return 'ready';
-      case 'mock':
-        return 'ready';
-      case 'loading':
-        return 'processing';
-      case 'unavailable':
-        return 'no_transcript';
-      case 'error':
-        return 'error';
-      default:
-        return 'processing';
+    // 3. For YouTube videos, try to fetch captions
+    try {
+      const captions = await this.fetchYoutubeCaptions(speechId);
+      if (captions) return captions;
+    } catch (e) {
+      console.warn('Failed to fetch YouTube captions:', e);
     }
-  }
 
-  /**
-   * Generates a mock transcript for testing fallbacks and loading states
-   */
-  /**
-   * Generates a mock transcript for testing fallbacks and loading states
-   */
-  generateMockTranscript(speechId: string): Transcript {
+    // 4. If no captions, we could trigger AI transcription
+    // For now, we'll return unavailable to be honest, but offer a "Sample Mode"
     return {
       speechId,
-      state: 'mock',
-      source: 'fallback',
+      state: 'unavailable',
+      sentences: [],
+      source: 'fallback'
+    };
+  }
+
+  /**
+   * Mock for fetching YouTube captions
+   */
+  private async fetchYoutubeCaptions(speechId: string): Promise<Transcript | null> {
+    // In a real app, this would call a backend that uses youtube-transcript-api or similar
+    // For this demo, we'll simulate a failure for most, but success for a specific ID if needed
+    return null; 
+  }
+
+  /**
+   * Mock for AI-generated transcription
+   */
+  async generateAITranscript(speechId: string): Promise<Transcript> {
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    // Simulate AI processing
+    return this.generateMockTranscript(speechId, 'ai_generated');
+  }
+
+  /**
+   * Generates a mock transcript for testing fallbacks and loading states
+   */
+  generateMockTranscript(speechId: string, source: Transcript['source'] = 'fallback'): Transcript {
+    const state: TranscriptState = source === 'fallback' ? 'mock' : 'available';
+    
+    return {
+      speechId,
+      state,
+      source,
       sentences: [
         {
           id: "s1",
@@ -179,11 +187,11 @@ class SpeechService {
   }
 
   /**
-   * Speaks the given text using browser speech synthesis
+   * Speaks the given text using browser speech synthesis with high-quality voice selection
    */
-  async speak(text: string): Promise<void> {
+  async speak(text: string, options: { slow?: boolean; voicePreference?: 'us' | 'gb' } = {}): Promise<void> {
     return new Promise((resolve, reject) => {
-      if (!window.speechSynthesis) {
+      if (typeof window === 'undefined' || !window.speechSynthesis) {
         reject(new Error('Speech synthesis not supported in this browser.'));
         return;
       }
@@ -191,16 +199,70 @@ class SpeechService {
       // Cancel any ongoing speech
       window.speechSynthesis.cancel();
 
+      // Create utterance
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = 'en-US'; // Default to English
-      utterance.rate = 0.9;
+      
+      // Configure rate
+      utterance.rate = options.slow ? 0.6 : 0.95;
       utterance.pitch = 1.0;
+      utterance.volume = 1.0;
 
-      utterance.onend = () => resolve();
-      utterance.onerror = (e) => reject(new Error(`Speech synthesis failed: ${e.error}`));
+      // Voice selection strategy
+      const voices = window.speechSynthesis.getVoices();
+      
+      if (voices.length > 0) {
+        // Preferred voice patterns
+        const preferredPatterns = options.voicePreference === 'gb' 
+          ? ['Google UK English Female', 'Google UK English Male', 'Daniel', 'Serena', 'en-GB']
+          : ['Google US English', 'Samantha', 'Alex', 'en-US'];
 
+        // Try to find a high-quality preferred voice
+        let selectedVoice = null;
+        
+        for (const pattern of preferredPatterns) {
+          selectedVoice = voices.find(v => v.name.includes(pattern) || v.lang.includes(pattern));
+          if (selectedVoice) break;
+        }
+
+        // Fallback to any English voice if preferred not found
+        if (!selectedVoice) {
+          selectedVoice = voices.find(v => v.lang.startsWith('en'));
+        }
+
+        if (selectedVoice) {
+          utterance.voice = selectedVoice;
+          utterance.lang = selectedVoice.lang;
+        } else {
+          utterance.lang = options.voicePreference === 'gb' ? 'en-GB' : 'en-US';
+        }
+      } else {
+        // If voices aren't loaded yet, set language and hope for the best
+        utterance.lang = options.voicePreference === 'gb' ? 'en-GB' : 'en-US';
+      }
+
+      utterance.onend = () => {
+        resolve();
+      };
+
+      utterance.onerror = (event) => {
+        console.error('SpeechSynthesisUtterance error', event);
+        if (event.error === 'interrupted') {
+          resolve(); // Interrupted is often intentional (new speech started)
+        } else {
+          reject(new Error(`Speech synthesis failed: ${event.error}`));
+        }
+      };
+
+      // Some browsers need a small delay or voices might not be ready
       window.speechSynthesis.speak(utterance);
     });
+  }
+
+  /**
+   * Checks if speech synthesis is supported and available
+   */
+  isSpeechSupported(): boolean {
+    return typeof window !== 'undefined' && !!window.speechSynthesis;
   }
 }
 

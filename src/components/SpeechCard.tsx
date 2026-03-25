@@ -50,21 +50,28 @@ export const SpeechCard: React.FC<SpeechCardProps> = ({ speech, onClick }) => {
         </div>
       </div>
       
-      <div className="p-5 space-y-3">
-        <div className="flex justify-between items-start gap-2">
+      <div className="p-5 space-y-4">
+        <div className="space-y-2">
+          <div className="flex flex-wrap gap-1.5">
+            {speech.metadata?.tags?.slice(0, 2).map(tag => (
+              <span key={tag} className="text-[9px] font-black uppercase tracking-widest text-primary bg-primary/10 px-2 py-0.5 rounded-md border border-primary/20">
+                {tag}
+              </span>
+            ))}
+          </div>
           <h3 className="font-bold text-lg leading-tight text-white group-hover:text-primary transition-colors line-clamp-2 glow-text">
             {speech.title}
           </h3>
         </div>
         
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between pt-2 border-t border-white/5">
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center">
               <User size={12} className="text-soft-gray" />
             </div>
             <span className="text-xs font-semibold text-soft-gray">{speech.speaker}</span>
           </div>
-          <Badge variant="secondary" className="bg-white/5 text-soft-gray border-white/10">{speech.category}</Badge>
+          <Badge variant="secondary" className="bg-white/5 text-soft-gray border-white/10 text-[10px] uppercase tracking-tighter">{speech.category}</Badge>
         </div>
       </div>
     </Card>

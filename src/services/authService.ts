@@ -54,15 +54,26 @@ class AuthService {
     return stored ? JSON.parse(stored) : [];
   }
 
+  private getLocalCredentials(): Record<string, string> {
+    const stored = localStorage.getItem('fluent_local_credentials');
+    return stored ? JSON.parse(stored) : {};
+  }
+
   private saveLocalProfile(user: User) {
     const profiles = this.getLocalProfiles();
-    const index = profiles.findIndex(p => p.id === user.id || p.email === user.email);
+    const index = profiles.findIndex(p => p.id === user.id || p.email.toLowerCase() === user.email.toLowerCase());
     if (index !== -1) {
       profiles[index] = { ...profiles[index], ...user };
     } else {
       profiles.push(user);
     }
     localStorage.setItem('fluent_local_profiles', JSON.stringify(profiles));
+  }
+
+  private saveLocalCredentials(email: string, pass: string) {
+    const credentials = this.getLocalCredentials();
+    credentials[email.toLowerCase()] = pass;
+    localStorage.setItem('fluent_local_credentials', JSON.stringify(credentials));
   }
 
   private generateLocalId(email: string): string {
@@ -192,6 +203,10 @@ class AuthService {
   }
 
   async login(email: string, password: string): Promise<User> {
+    if (!email || !password) {
+      throw new Error('Email and password are required');
+    }
+
     if (isSupabaseConfigured) {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
@@ -208,9 +223,14 @@ class AuthService {
     const existingUser = profiles.find(p => p.email.toLowerCase() === email.toLowerCase());
     
     if (!existingUser) {
-      // For mock mode, if user doesn't exist, we can either throw or auto-create.
-      // Let's auto-create for better UX in demo mode, but with a stable ID.
-      return this.signUp(email, password);
+      throw new Error('Account not found. Please sign up first.');
+    }
+
+    const credentials = this.getLocalCredentials();
+    const storedPassword = credentials[email.toLowerCase()];
+
+    if (storedPassword && storedPassword !== password) {
+      throw new Error('Incorrect password. Please try again.');
     }
 
     this.currentUser = existingUser;
@@ -220,6 +240,10 @@ class AuthService {
   }
 
   async signUp(email: string, password: string, name?: string): Promise<User> {
+    if (!email || !password) {
+      throw new Error('Email and password are required');
+    }
+
     if (isSupabaseConfigured) {
       const { data, error } = await supabase.auth.signUp({ 
         email, 
@@ -242,9 +266,13 @@ class AuthService {
     
     const userId = this.generateLocalId(email);
     const profiles = this.getLocalProfiles();
-    const existing = profiles.find(p => p.id === userId);
+    const existing = profiles.find(p => p.email.toLowerCase() === email.toLowerCase());
 
-    const user: User = existing || {
+    if (existing) {
+      throw new Error('An account with this email already exists.');
+    }
+
+    const user: User = {
       id: userId,
       email: email.toLowerCase(),
       displayName: name || email.split('@')[0],
@@ -267,11 +295,8 @@ class AuthService {
       }
     };
 
-    if (name && user.displayName !== name) {
-      user.displayName = name;
-    }
-
     this.saveLocalProfile(user);
+    this.saveLocalCredentials(email, password);
     this.currentUser = user;
     localStorage.setItem(AUTH_KEY, JSON.stringify(user));
     this.notifyListeners();
@@ -283,13 +308,16 @@ class AuthService {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin
+          redirectTo: window.location.origin,
+          queryParams: {
+            prompt: 'select_account',
+          }
         }
       });
       if (error) throw error;
     } else {
       // Do not auto-login with mock account
-      throw new Error('Google Authentication is not configured for this environment.');
+      throw new Error('Google Sign-In is not configured for this environment. Please use email and password.');
     }
   }
 

@@ -187,7 +187,7 @@ export const SignUpForm: React.FC<SignUpFormProps> = ({
           variant="outline" 
           className={`w-full py-4 rounded-2xl border-white/10 bg-white/5 text-white hover:bg-white/10 ${!isSupabaseConfigured ? 'opacity-50 grayscale cursor-not-allowed' : ''}`}
           onClick={handleGoogleSignUp}
-          disabled={isLoading}
+          disabled={isLoading || !isSupabaseConfigured}
         >
           <Chrome size={18} className="mr-2 text-neon-cyan" />
           Google

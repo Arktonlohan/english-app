@@ -48,6 +48,7 @@ class ProgressService {
         lastPosition: 0,
         difficultSentenceIds: [],
         completedSentenceIds: [],
+        bookmarkedSentenceIds: [],
         savedWordsCount: 0,
         lastStudiedAt: new Date().toISOString(),
         totalTimeSpent: 0
@@ -94,6 +95,24 @@ class ProgressService {
     await progressRepository.saveSpeechProgress(userId, progress);
     this.notify();
     return progress.difficultSentenceIds.includes(sentenceId);
+  }
+  
+  async toggleBookmarkedSentence(speechId: string, sentenceId: string) {
+    const userId = authService.getUserId();
+    if (!userId) return false;
+
+    const progress = await this.getSpeechProgress(speechId);
+    const index = progress.bookmarkedSentenceIds.indexOf(sentenceId);
+    if (index > -1) {
+      progress.bookmarkedSentenceIds.splice(index, 1);
+    } else {
+      progress.bookmarkedSentenceIds.push(sentenceId);
+    }
+    
+    this.progressMap[speechId] = progress;
+    await progressRepository.saveSpeechProgress(userId, progress);
+    this.notify();
+    return progress.bookmarkedSentenceIds.includes(sentenceId);
   }
 
   async markSentenceCompleted(speechId: string, sentenceId: string) {

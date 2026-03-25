@@ -26,6 +26,7 @@ class LocalProgressRepository implements ProgressRepository {
       lastPosition: 0,
       difficultSentenceIds: [],
       completedSentenceIds: [],
+      bookmarkedSentenceIds: [],
       savedWordsCount: 0,
       lastStudiedAt: new Date().toISOString(),
       totalTimeSpent: 0
@@ -79,6 +80,7 @@ class SupabaseProgressRepository implements ProgressRepository {
           lastPosition: 0,
           difficultSentenceIds: [],
           completedSentenceIds: [],
+          bookmarkedSentenceIds: [],
           savedWordsCount: 0,
           lastStudiedAt: new Date().toISOString(),
           totalTimeSpent: 0
@@ -102,6 +104,7 @@ class SupabaseProgressRepository implements ProgressRepository {
           last_position: progress.lastPosition,
           completed_sentence_ids: progress.completedSentenceIds,
           difficult_sentence_ids: progress.difficultSentenceIds,
+          bookmarked_sentence_ids: progress.bookmarkedSentenceIds,
           saved_words_count: progress.savedWordsCount,
           total_time_spent: progress.totalTimeSpent,
           last_studied_at: progress.lastStudiedAt,
@@ -180,6 +183,7 @@ class SupabaseProgressRepository implements ProgressRepository {
       lastPosition: dbProgress.last_position,
       completedSentenceIds: dbProgress.completed_sentence_ids || [],
       difficultSentenceIds: dbProgress.difficult_sentence_ids || [],
+      bookmarkedSentenceIds: dbProgress.bookmarked_sentence_ids || [],
       savedWordsCount: dbProgress.saved_words_count || 0,
       lastStudiedAt: dbProgress.last_studied_at || dbProgress.updated_at,
       totalTimeSpent: dbProgress.total_time_spent || 0

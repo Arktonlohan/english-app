@@ -31,7 +31,8 @@ import {
   Trophy,
   Loader2,
   FileQuestion,
-  Sparkles
+  Sparkles,
+  Activity
 } from 'lucide-react';
 
 interface ShadowingPlayerProps {
@@ -51,20 +52,25 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
   const [showTranslation, setShowTranslation] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [difficultMode, setDifficultMode] = useState(false);
+  const [bookmarksMode, setBookmarksMode] = useState(false);
   const [isFocusMode, setIsFocusMode] = useState(false);
   const [showSessionSummary, setShowSessionSummary] = useState(false);
   const [difficultSentenceIds, setDifficultSentenceIds] = useState<string[]>([]);
   const [completedSentenceIds, setCompletedSentenceIds] = useState<string[]>([]);
+  const [bookmarkedSentenceIds, setBookmarkedSentenceIds] = useState<string[]>([]);
   const [overallProgress, setOverallProgress] = useState(0);
   const [showResumeDialog, setShowResumeDialog] = useState(false);
   const [sessionStartTime] = useState(new Date());
   const [savedWordsCount, setSavedWordsCount] = useState(0);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isSlowMode, setIsSlowMode] = useState(false);
   const { user, updatePreferences } = useAuth();
   const [subtitleSize, setSubtitleSize] = useState<'sm' | 'md' | 'lg'>(user?.preferences?.subtitleSize || 'md');
   
   // Transcript State
   const [transcript, setTranscript] = useState<Transcript | undefined>(speech.transcript);
   const [isTranscriptLoading, setIsTranscriptLoading] = useState(false);
+  const [isGeneratingTranscript, setIsGeneratingTranscript] = useState(false);
   const [transcriptError, setTranscriptError] = useState<string | null>(null);
   const [isLoopingSentence, setIsLoopingSentence] = useState(false);
   const [showSizeControl, setShowSizeControl] = useState(false);
@@ -106,9 +112,15 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
   }, [transcript]);
 
   const filteredSentences = useMemo(() => {
-    if (!difficultMode) return sentences;
-    return sentences.filter(s => difficultSentenceIds.includes(s.id));
-  }, [sentences, difficultMode, difficultSentenceIds]);
+    let filtered = sentences;
+    if (difficultMode) {
+      filtered = filtered.filter(s => difficultSentenceIds.includes(s.id));
+    }
+    if (bookmarksMode) {
+      filtered = filtered.filter(s => bookmarkedSentenceIds.includes(s.id));
+    }
+    return filtered;
+  }, [sentences, difficultMode, bookmarksMode, difficultSentenceIds, bookmarkedSentenceIds]);
 
   const activeSentenceIndex = useMemo(() => {
     return sentences.findIndex(
@@ -122,9 +134,11 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
       const progress = await progressService.getSpeechProgress(speech.id);
       setDifficultSentenceIds(progress.difficultSentenceIds);
       setCompletedSentenceIds(progress.completedSentenceIds);
+      setBookmarkedSentenceIds(progress.bookmarkedSentenceIds || []);
       const overall = await progressService.getOverallProgress(speech.id, sentences.length);
       setOverallProgress(overall);
-      setSavedWordsCount(vocabularyService.getSavedWordsCountForSpeech(speech.id));
+      const savedCount = await vocabularyService.getSavedWordsCountForSpeech(speech.id);
+      setSavedWordsCount(savedCount);
 
       if (progress.lastPosition > 5) {
         setShowResumeDialog(true);
@@ -150,7 +164,7 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
             duration,
             sentencesCompleted: currentProgress.completedSentenceIds.length,
             difficultSentencesReviewed: currentProgress.difficultSentenceIds.length,
-            wordsSaved: vocabularyService.getSavedWordsCountForSpeech(speech.id)
+            wordsSaved: await vocabularyService.getSavedWordsCountForSpeech(speech.id)
           });
           await progressService.addTimeSpent(speech.id, duration);
         }
@@ -357,7 +371,7 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
     await vocabularyService.addWord(wordToSave);
     
     setIsSaved(true);
-    const newCount = vocabularyService.getSavedWordsCountForSpeech(speech.id);
+    const newCount = await vocabularyService.getSavedWordsCountForSpeech(speech.id);
     setSavedWordsCount(newCount);
     await progressService.updateSavedWordsCount(speech.id, newCount);
   };
@@ -386,10 +400,14 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
   };
 
   const speakWord = async (text: string) => {
+    if (isSpeaking) return;
+    setIsSpeaking(true);
     try {
-      await speechService.speak(text);
+      await speechService.speak(text, { slow: isSlowMode });
     } catch (error) {
       console.error('Failed to play pronunciation:', error);
+    } finally {
+      setIsSpeaking(false);
     }
   };
 
@@ -399,6 +417,29 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
       setDifficultSentenceIds(prev => [...prev, sentenceId]);
     } else {
       setDifficultSentenceIds(prev => prev.filter(id => id !== sentenceId));
+    }
+  };
+
+  const toggleBookmark = async (sentenceId: string) => {
+    const isNowBookmarked = await progressService.toggleBookmarkedSentence(speech.id, sentenceId);
+    if (isNowBookmarked) {
+      setBookmarkedSentenceIds(prev => [...prev, sentenceId]);
+    } else {
+      setBookmarkedSentenceIds(prev => prev.filter(id => id !== sentenceId));
+    }
+  };
+
+  const handleGenerateAITranscript = async () => {
+    setIsGeneratingTranscript(true);
+    setTranscriptError(null);
+    try {
+      const newTranscript = await speechService.generateAITranscript(speech.id);
+      setTranscript(newTranscript);
+    } catch (error) {
+      console.error('Failed to generate AI transcript:', error);
+      setTranscriptError('AI Transcription failed. Please try again later.');
+    } finally {
+      setIsGeneratingTranscript(false);
     }
   };
 
@@ -451,6 +492,13 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
             title="Difficult Sentences Mode"
           >
             <Brain size={20} />
+          </button>
+           <button 
+            onClick={() => setBookmarksMode(!bookmarksMode)}
+            className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${bookmarksMode ? 'bg-amber-500 text-white shadow-lg shadow-amber-200' : 'text-slate-400 hover:bg-slate-100'}`}
+            title="Bookmarked Sentences Mode"
+          >
+            <Bookmark size={20} />
           </button>
            {!isFocusMode && (
              <button 
@@ -587,6 +635,21 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
                 <p className="text-slate-500 font-medium animate-pulse">Syncing transcript with video timeline...</p>
               </div>
             </div>
+          ) : isGeneratingTranscript ? (
+            <div className="flex flex-col items-center justify-center py-32 space-y-8">
+              <div className="relative">
+                <div className="w-24 h-24 rounded-full border-4 border-accent/10 border-t-accent animate-spin" />
+                <motion.div 
+                  animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.6, 0.3] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                  className="absolute inset-0 bg-accent/20 blur-2xl rounded-full"
+                />
+              </div>
+              <div className="text-center space-y-3">
+                <h3 className="text-2xl font-black text-slate-900 tracking-tight">AI Transcription in Progress</h3>
+                <p className="text-slate-500 font-medium animate-pulse">Our AI is listening and transcribing the content...</p>
+              </div>
+            </div>
           ) : transcript?.state === 'unavailable' || transcriptError ? (
             <Card className="p-12 border-none bg-slate-50 rounded-[3.5rem] text-center space-y-8 relative overflow-hidden">
               <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -mr-32 -mt-32" />
@@ -598,31 +661,41 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
               <div className="space-y-3 relative z-10">
                 <h3 className="text-3xl font-black text-slate-900 tracking-tight">Transcript Unavailable</h3>
                 <p className="text-slate-500 font-medium max-w-sm mx-auto leading-relaxed">
-                  We couldn't retrieve a matching transcript for this video. You can still watch and listen to the original audio.
+                  We couldn't retrieve a matching transcript for this video. You can still watch the video or use our AI to generate a transcript.
                 </p>
               </div>
               
               <div className="pt-6 flex flex-col gap-4 max-w-sm mx-auto relative z-10">
                 <Button 
                   className="rounded-[1.5rem] py-6 font-black text-lg flex items-center justify-center gap-3 shadow-xl shadow-primary/20"
+                  onClick={handleGenerateAITranscript}
+                >
+                  <Sparkles size={20} />
+                  Generate AI Transcript
+                </Button>
+                
+                <div className="flex items-center gap-4 py-2">
+                  <div className="flex-1 h-px bg-slate-200" />
+                  <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">OR</span>
+                  <div className="flex-1 h-px bg-slate-200" />
+                </div>
+
+                <Button 
+                  variant="outline"
+                  className="rounded-[1.5rem] py-4 font-black text-sm flex items-center justify-center gap-3 border-2"
                   onClick={() => {
                     // Force a mock transcript for study
                     setTranscript(speechService.generateMockTranscript(speech.id));
                     setTranscriptError(null);
                   }}
                 >
-                  <Sparkles size={20} />
+                  <PlayCircle size={18} />
                   Try Sample Study Mode
                 </Button>
+                
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
                   Note: Sample mode uses a generic transcript for practice
                 </p>
-                <button 
-                  onClick={onBack}
-                  className="text-slate-400 font-bold text-sm hover:text-slate-600 transition-colors py-2"
-                >
-                  Choose Another Video
-                </button>
               </div>
             </Card>
           ) : filteredSentences.length === 0 ? (
@@ -631,9 +704,13 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
                 <AlertCircle size={32} />
               </div>
               <p className="text-slate-400 font-bold">No sentences found matching your filters.</p>
-              <Button variant="secondary" onClick={() => setDifficultMode(false)}>
-                Show All Sentences
-              </Button>
+              <div className="flex justify-center gap-3">
+                {(difficultMode || bookmarksMode) && (
+                  <Button variant="secondary" onClick={() => { setDifficultMode(false); setBookmarksMode(false); }}>
+                    Clear All Filters
+                  </Button>
+                )}
+              </div>
             </div>
           ) : (
             <div 
@@ -675,6 +752,7 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
                 const sIdx = sentences.findIndex(s => s.id === sentence.id);
                 const isDifficult = difficultSentenceIds.includes(sentence.id);
                 const isCompleted = completedSentenceIds.includes(sentence.id);
+                const isBookmarked = bookmarkedSentenceIds.includes(sentence.id);
                 const isActive = sIdx === activeSentenceIndex;
                 
                 return (
@@ -688,6 +766,7 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
                         : 'bg-white hover:bg-slate-50 border-transparent'}
                       ${isDifficult && !isActive ? 'border-rose-100 bg-rose-50/10' : ''}
                       ${isCompleted && !isActive ? 'opacity-40' : ''}
+                      ${isBookmarked && !isActive ? 'border-amber-100 bg-amber-50/10' : ''}
                     `}
                     animate={{
                       opacity: isActive ? 1 : (difficultMode ? 1 : (isCompleted ? 0.6 : 0.9))
@@ -700,6 +779,9 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
                       )}
                       {isCompleted && (
                         <Badge variant="success" className="rounded-full px-3 py-1 text-[9px] font-black shadow-md uppercase tracking-tighter">Mastered</Badge>
+                      )}
+                      {isBookmarked && (
+                        <Badge variant="accent" className="rounded-full px-3 py-1 text-[9px] font-black shadow-md uppercase tracking-tighter bg-amber-500 border-amber-600">Bookmarked</Badge>
                       )}
                     </div>
 
@@ -725,6 +807,16 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
                         title="Loop Sentence"
                        >
                           <Repeat size={18} />
+                       </button>
+                       <button 
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          toggleBookmark(sentence.id);
+                        }}
+                        className={`w-12 h-12 rounded-2xl bg-white shadow-xl flex items-center justify-center transition-all hover:scale-110 active:scale-95 border border-slate-50 ${isBookmarked ? 'text-amber-500' : 'text-slate-400 hover:text-amber-500'}`}
+                        title="Bookmark Sentence"
+                       >
+                          <Bookmark size={18} fill={isBookmarked ? "currentColor" : "none"} />
                        </button>
                        <button 
                         onClick={(e) => { 
@@ -1056,12 +1148,30 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
                   <h3 className="text-5xl font-black text-slate-900 tracking-tight">{selectedWord.text}</h3>
                   <div className="flex items-center gap-4">
                     <span className="text-xl font-bold text-primary font-mono tracking-widest">{selectedWord.ipa || '/.../'}</span>
-                    <button 
-                      onClick={() => speakWord(selectedWord.text)}
-                      className="w-10 h-10 rounded-2xl bg-primary/5 text-primary flex items-center justify-center hover:bg-primary/10 transition-colors"
-                    >
-                      <Volume2 size={18} />
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button 
+                        disabled={isSpeaking}
+                        onClick={() => speakWord(selectedWord.text)}
+                        className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
+                          isSpeaking 
+                            ? 'bg-primary text-white animate-pulse shadow-lg shadow-primary/20' 
+                            : 'bg-primary/5 text-primary hover:bg-primary/10'
+                        }`}
+                      >
+                        <Volume2 size={20} className={isSpeaking ? "animate-bounce" : ""} />
+                      </button>
+                      <button 
+                        onClick={() => setIsSlowMode(!isSlowMode)}
+                        className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
+                          isSlowMode 
+                            ? 'bg-amber-100 text-amber-600 shadow-sm' 
+                            : 'bg-slate-50 text-slate-400 hover:text-slate-600'
+                        }`}
+                        title="Slow Mode"
+                      >
+                        <Activity size={18} className={isSlowMode ? "animate-pulse" : ""} />
+                      </button>
+                    </div>
                   </div>
                 </div>
                 <div className="flex gap-3">

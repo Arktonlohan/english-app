@@ -18,6 +18,21 @@ export interface PhonemeFeedback {
   isCorrect: boolean;
 }
 
+export interface SyllableFeedback {
+  text: string;
+  isStressed: boolean;
+  score: number;
+  feedback?: string;
+}
+
+export interface WordFeedback {
+  text: string;
+  ipa?: string;
+  score: number;
+  syllables: SyllableFeedback[];
+  phonemes?: PhonemeFeedback[];
+}
+
 export interface PronunciationAttempt {
   id: string;
   text: string;
@@ -28,6 +43,7 @@ export interface PronunciationAttempt {
   strengths?: string[];
   improvements?: string[];
   phonemes?: PhonemeFeedback[];
+  words?: WordFeedback[];
   audioUrl?: string;
   duration?: number;
 }
@@ -110,6 +126,27 @@ export enum SRSLevel {
   MASTERED = 'mastered'
 }
 
+export interface DictionaryEntry {
+  word: string;
+  phonetic?: string;
+  phonetics: {
+    text?: string;
+    audio?: string;
+  }[];
+  meanings: {
+    partOfSpeech: string;
+    definitions: {
+      definition: string;
+      synonyms: string[];
+      antonyms: string[];
+      example?: string;
+    }[];
+    synonyms: string[];
+    antonyms: string[];
+  }[];
+  sourceUrls: string[];
+}
+
 export interface VocabularyWord {
   id: string;
   userId: string;
@@ -151,6 +188,7 @@ export interface SpeechProgress {
   lastPosition: number;
   completedSentenceIds: string[];
   difficultSentenceIds: string[];
+  bookmarkedSentenceIds: string[];
   savedWordsCount: number;
   lastStudiedAt: string;
   totalTimeSpent: number; // in seconds

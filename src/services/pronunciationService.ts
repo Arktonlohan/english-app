@@ -1,4 +1,11 @@
-import { PronunciationAttempt, PronunciationPracticeItem, PronunciationScore, PhonemeFeedback } from '../types';
+import { 
+  PronunciationAttempt, 
+  PronunciationPracticeItem, 
+  PronunciationScore, 
+  PhonemeFeedback,
+  WordFeedback,
+  SyllableFeedback
+} from '../types';
 import { pronunciationRepository } from './persistence/pronunciationRepository';
 import { authService } from './authService';
 
@@ -64,11 +71,10 @@ class PronunciationService {
     if (!userId) throw new Error('User must be logged in to analyze pronunciation');
 
     // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    await new Promise(resolve => setTimeout(resolve, 2000));
 
     // Believable analysis logic
     const wordCount = text.split(' ').length;
-    const charCount = text.length;
     
     // Ideal duration is roughly 0.3-0.6 seconds per word for fluent speech
     const idealDuration = Math.max(0.5, wordCount * 0.4);
@@ -81,8 +87,8 @@ class PronunciationService {
     else if (durationRatio > 1.2) fluencyModifier = -5; // Slightly slow
     
     // Base scores with some randomness but influenced by "logic"
-    const baseAccuracy = 85 + (Math.random() * 10);
-    const baseFluency = 80 + fluencyModifier + (Math.random() * 10);
+    const baseAccuracy = 82 + (Math.random() * 12);
+    const baseFluency = 78 + fluencyModifier + (Math.random() * 15);
     const baseStress = 75 + (Math.random() * 15);
     const baseRhythm = 70 + (Math.random() * 20);
     const baseIntonation = 75 + (Math.random() * 15);
@@ -109,6 +115,7 @@ class PronunciationService {
 
     const feedback = this.generateFeedback(score);
     const phonemes = this.generatePhonemeFeedback(text);
+    const words = this.generateWordFeedback(text);
 
     const attempt: PronunciationAttempt = {
       id: Math.random().toString(36).substr(2, 9),
@@ -119,6 +126,7 @@ class PronunciationService {
       strengths,
       improvements,
       phonemes,
+      words,
       duration,
       audioUrl: URL.createObjectURL(audioBlob)
     };
@@ -152,32 +160,106 @@ class PronunciationService {
   }
 
   private generatePhonemeFeedback(text: string): PhonemeFeedback[] {
-    // Very basic mock phoneme feedback
-    const words = text.split(' ');
+    const words = text.toLowerCase().split(/\s+/);
     const phonemes: PhonemeFeedback[] = [];
     
-    // Just mock some phonemes for the first word
-    if (words.length > 0) {
-      const firstWord = words[0].toLowerCase();
-      if (firstWord.includes('th')) {
+    // Comprehensive phoneme mapping for common English sounds
+    const phonemeMap: Record<string, { symbol: string; feedback: string; tip: string }> = {
+      'th': { 
+        symbol: 'θ', 
+        feedback: "The 'th' sound should be produced with the tongue between the teeth.",
+        tip: "Place the tip of your tongue between your upper and lower front teeth. Blow air out gently."
+      },
+      'r': { 
+        symbol: 'r', 
+        feedback: "The 'r' sound in English is retroflex; avoid touching the roof of your mouth.",
+        tip: "Curl the tip of your tongue back slightly without touching the roof of your mouth. Keep your lips slightly rounded."
+      },
+      'l': { 
+        symbol: 'l', 
+        feedback: "The 'l' sound requires the tip of the tongue to touch the alveolar ridge.",
+        tip: "Touch the tip of your tongue to the ridge just behind your upper front teeth. Let air flow around the sides of your tongue."
+      },
+      'v': { 
+        symbol: 'v', 
+        feedback: "The 'v' sound is a voiced labiodental fricative.",
+        tip: "Touch your upper teeth to your lower lip and blow air through while vibrating your vocal cords."
+      },
+      'w': { 
+        symbol: 'w', 
+        feedback: "The 'w' sound is a voiced labio-velar approximant.",
+        tip: "Round your lips tightly as if you're about to whistle, then quickly move them apart while making a sound."
+      },
+      'sh': { 
+        symbol: 'ʃ', 
+        feedback: "The 'sh' sound is a voiceless palato-alveolar fricative.",
+        tip: "Push your lips forward slightly and blow air through the space between your tongue and the roof of your mouth."
+      }
+    };
+
+    // Check for phonemes in the text
+    Object.keys(phonemeMap).forEach(key => {
+      if (text.toLowerCase().includes(key)) {
+        const data = phonemeMap[key];
+        const isCorrect = Math.random() > 0.3;
         phonemes.push({
-          phoneme: 'θ',
-          score: Math.random() > 0.3 ? 90 : 40,
-          feedback: "The 'th' sound should be produced with the tongue between the teeth.",
-          isCorrect: Math.random() > 0.3
+          phoneme: data.symbol,
+          score: isCorrect ? Math.round(85 + Math.random() * 15) : Math.round(40 + Math.random() * 30),
+          feedback: data.feedback,
+          isCorrect
         });
       }
-      if (firstWord.includes('r')) {
-        phonemes.push({
-          phoneme: 'r',
-          score: Math.random() > 0.2 ? 85 : 50,
-          feedback: "The 'r' sound in English is retroflex; avoid touching the roof of your mouth.",
-          isCorrect: Math.random() > 0.2
-        });
-      }
+    });
+
+    // If no specific phonemes found, add a generic vowel one
+    if (phonemes.length === 0) {
+      phonemes.push({
+        phoneme: 'ə',
+        score: Math.round(75 + Math.random() * 25),
+        feedback: "The schwa sound /ə/ is the most common sound in English.",
+        isCorrect: true
+      });
     }
 
-    return phonemes;
+    return phonemes.slice(0, 3); // Limit to 3 for UI clarity
+  }
+
+  private generateWordFeedback(text: string): WordFeedback[] {
+    const rawWords = text.split(' ');
+    return rawWords.map(word => {
+      const syllables = this.mockSyllables(word);
+      const wordScore = Math.round(75 + Math.random() * 25);
+      
+      return {
+        text: word,
+        score: wordScore,
+        syllables,
+        phonemes: [] // Could add word-specific phonemes here
+      };
+    });
+  }
+
+  private mockSyllables(word: string): SyllableFeedback[] {
+    const cleanWord = word.replace(/[.,!?;]/g, '');
+    const len = cleanWord.length;
+    
+    // Very basic mock syllable splitter
+    if (len <= 4) {
+      return [{ text: cleanWord, isStressed: true, score: Math.round(80 + Math.random() * 20) }];
+    } else if (len <= 7) {
+      const mid = Math.floor(len / 2);
+      return [
+        { text: cleanWord.substring(0, mid), isStressed: true, score: Math.round(80 + Math.random() * 20) },
+        { text: cleanWord.substring(mid), isStressed: false, score: Math.round(70 + Math.random() * 30) }
+      ];
+    } else {
+      const part = Math.floor(len / 3);
+      return [
+        { text: cleanWord.substring(0, part), isStressed: false, score: Math.round(70 + Math.random() * 30) },
+        { text: cleanWord.substring(part, part * 2), isStressed: true, score: Math.round(80 + Math.random() * 20) },
+        { text: cleanWord.substring(part * 2), isStressed: false, score: Math.round(70 + Math.random() * 30) }
+      ];
+    }
   }
 
   async getStats() {
@@ -190,13 +272,13 @@ class PronunciationService {
     const totalScore = this.attempts.reduce((acc, curr) => acc + curr.score.overall, 0);
     const avgScore = Math.round(totalScore / this.attempts.length);
     
-    const latestAttempt = this.attempts[this.attempts.length - 1];
+    const latestAttempt = this.attempts[0]; // Already sorted in getAttempts
     
     return {
       totalAttempts: this.attempts.length,
       averageScore: avgScore,
-      latestScore: latestAttempt.score.overall,
-      improvement: this.attempts.length > 1 ? avgScore - this.attempts[0].score.overall : 0
+      latestScore: latestAttempt?.score.overall || 0,
+      improvement: this.attempts.length > 1 ? avgScore - this.attempts[this.attempts.length - 1].score.overall : 0
     };
   }
 }

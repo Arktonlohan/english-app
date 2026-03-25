@@ -1,4 +1,4 @@
-import { VocabularyWord, SRSLevel, FlashcardStats } from '../types';
+import { VocabularyWord, SRSLevel, FlashcardStats, DictionaryEntry } from '../types';
 import { MOCK_VOCABULARY } from '../data/vocabulary';
 import { vocabularyRepository } from './persistence/vocabularyRepository';
 import { authService } from './authService';
@@ -7,8 +7,11 @@ class VocabularyService {
   private words: VocabularyWord[] = [];
   private isLoaded = false;
   private currentUserId: string | null = null;
+  private recentSearches: string[] = [];
+  private readonly RECENT_SEARCHES_KEY = 'fluent_recent_searches';
 
   constructor() {
+    this.loadRecentSearches();
     authService.onAuthStateChanged((user) => {
       if (user) {
         if (this.currentUserId !== user.id) {
@@ -224,8 +227,74 @@ class VocabularyService {
     return this.words.some(w => (w.word || w.text || '').toLowerCase() === text.toLowerCase());
   }
 
-  getSavedWordsCountForSpeech(speechId: string): number {
+  async getSavedWordsCountForSpeech(speechId: string): Promise<number> {
+    if (!this.isLoaded && this.currentUserId) {
+      await this.loadWords(this.currentUserId);
+    }
     return this.words.filter(w => w.sourceSpeechId === speechId).length;
+  }
+
+  // Dictionary & Search Features
+  async lookupWord(word: string): Promise<DictionaryEntry[]> {
+    try {
+      const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word.toLowerCase())}`);
+      if (!response.ok) {
+        if (response.status === 404) return [];
+        throw new Error('Dictionary service unavailable');
+      }
+      const data = await response.json();
+      this.addToRecentSearches(word);
+      return data as DictionaryEntry[];
+    } catch (error) {
+      console.error('Dictionary lookup failed:', error);
+      throw error;
+    }
+  }
+
+  private loadRecentSearches() {
+    const saved = localStorage.getItem(this.RECENT_SEARCHES_KEY);
+    if (saved) {
+      try {
+        this.recentSearches = JSON.parse(saved);
+      } catch (e) {
+        this.recentSearches = [];
+      }
+    }
+  }
+
+  private addToRecentSearches(word: string) {
+    const normalized = word.trim().toLowerCase();
+    if (!normalized) return;
+    
+    this.recentSearches = [
+      normalized,
+      ...this.recentSearches.filter(w => w !== normalized)
+    ].slice(0, 10);
+    
+    localStorage.setItem(this.RECENT_SEARCHES_KEY, JSON.stringify(this.recentSearches));
+    window.dispatchEvent(new CustomEvent('fluent_recent_searches_update'));
+  }
+
+  getRecentSearches(): string[] {
+    return this.recentSearches;
+  }
+
+  async getWordOfTheDay(): Promise<{ word: string; definition: string; ipa: string }> {
+    // Curated list for "Word of the Day" if vocabulary is small
+    const curated = [
+      { word: 'Eloquent', definition: 'Fluent or persuasive in speaking or writing.', ipa: '/ˈɛləkwənt/' },
+      { word: 'Resilient', definition: 'Able to withstand or recover quickly from difficult conditions.', ipa: '/rɪˈzɪliənt/' },
+      { word: 'Serendipity', definition: 'The occurrence and development of events by chance in a happy or beneficial way.', ipa: '/ˌsɛrənˈdɪpɪti/' },
+      { word: 'Ephemeral', definition: 'Lasting for a very short time.', ipa: '/ɪˈfɛmərəl/' },
+      { word: 'Pragmatic', definition: 'Dealing with things sensibly and realistically in a way that is based on practical rather than theoretical considerations.', ipa: '/præɡˈmætɪk/' }
+    ];
+
+    // Use a date-based seed to ensure the same word for the whole day
+    const dayOfYear = Math.floor((Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000);
+    
+    // If user has many words, maybe pick one from their vocabulary to review?
+    // For now, use curated list
+    return curated[dayOfYear % curated.length];
   }
 }
 
