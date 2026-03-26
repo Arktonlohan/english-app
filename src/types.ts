@@ -153,6 +153,8 @@ export interface VocabularyWord {
   translation: string;
   ipa: string;
   exampleSentence: string;
+  exampleSentence1?: string;
+  exampleSentence2?: string;
   createdAt: string;
   nextReview: string;
   interval: number; // in days

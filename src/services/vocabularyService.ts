@@ -105,13 +105,26 @@ class VocabularyService {
     const userId = authService.getUserId();
     if (!userId) throw new Error('User must be logged in to add words');
 
+    // Check if already saved to prevent duplicates
+    const existing = this.getVocabularyWordByText(word.word || word.text || '');
+    if (existing) return existing;
+
+    const s1 = word.exampleSentence1 || word.exampleSentence || word.example || '';
+    let s2 = word.exampleSentence2 || '';
+
+    if (!s2 && s1) {
+      s2 = this.generateAlternativeTense(word.word || word.text || '', s1);
+    }
+
     const newWord: VocabularyWord = {
       id: `v-${Date.now()}`,
       userId,
       word: word.word || word.text || '',
       translation: word.translation || word.meaning || '',
       ipa: word.ipa || '',
-      exampleSentence: word.exampleSentence || word.example || '',
+      exampleSentence: s1,
+      exampleSentence1: s1,
+      exampleSentence2: s2,
       createdAt: new Date().toISOString(),
       nextReview: new Date().toISOString(),
       interval: 0,
@@ -133,6 +146,22 @@ class VocabularyService {
     await vocabularyRepository.saveWord(userId, newWord);
     this.notify();
     return newWord;
+  }
+
+  private generateAlternativeTense(word: string, originalSentence: string): string {
+    const w = word.toLowerCase();
+    
+    // Simple heuristic-based tense variation
+    if (originalSentence.includes('will ') || originalSentence.includes('going to')) {
+      // Future -> Past
+      return `I ${w}ed yesterday and it was a great experience.`;
+    } else if (originalSentence.endsWith('ed') || originalSentence.includes('was ') || originalSentence.includes('were ')) {
+      // Past -> Present/Future
+      return `I will ${w} tomorrow if I have enough time.`;
+    } else {
+      // Present -> Past
+      return `Yesterday, I ${w}ed for the first time in a while.`;
+    }
   }
 
   async updateSRS(wordId: string, difficulty: 'again' | 'hard' | 'good' | 'easy') {

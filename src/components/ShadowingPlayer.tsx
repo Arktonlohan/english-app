@@ -111,17 +111,11 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
 
   const activeSegmentIndex = useMemo(() => {
     const idx = segments.findIndex(
-      s => currentTime >= s.start && currentTime <= s.end
+      s => currentTime >= s.start && currentTime < s.end
     );
     
-    // Debug-safe fallback: if transcript is available and segments exist, 
-    // always show at least the first segment to guarantee visibility
-    if (idx === -1 && transcriptResult?.status === 'available' && segments.length > 0) {
-      return 0;
-    }
-    
     return idx;
-  }, [segments, currentTime, transcriptResult]);
+  }, [segments, currentTime]);
 
   // Load initial progress
   useEffect(() => {
@@ -327,21 +321,15 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
     }
   };
   
-  const handleWordClick = async (word: Word, e: React.MouseEvent) => {
-    if (e) e.stopPropagation();
+  const handleBack = () => {
+    const endTime = new Date();
+    const duration = Math.floor((endTime.getTime() - sessionStartTime.getTime()) / 1000);
     
-    // Ensure the word has all necessary fields for the modal
-    const wordWithDetails = {
-      ...word,
-      ipa: word.ipa || '/.../',
-      meaning: word.meaning || 'Definition unavailable',
-      translation: word.translation || 'Translation unavailable',
-      example: word.example || 'Example unavailable'
-    };
-    
-    setSelectedWord(wordWithDetails);
-    const isSaved = vocabularyService.isWordSaved(word.text);
-    setIsSaved(isSaved);
+    if (duration > 5) {
+      setShowSessionSummary(true);
+    } else {
+      onBack();
+    }
   };
 
   const toggleLoopSentence = (e?: React.MouseEvent) => {
@@ -355,15 +343,40 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
       playerRef.current.playVideo();
     }
   };
-
-  const handleBack = () => {
-    const endTime = new Date();
-    const duration = Math.floor((endTime.getTime() - sessionStartTime.getTime()) / 1000);
+  const handleWordClickFromText = async (wordText: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     
-    if (duration > 5) {
-      setShowSessionSummary(true);
-    } else {
-      onBack();
+    const cleanWord = wordText.replace(/[.,!?;:()]/g, '');
+    
+    // Create a basic Word object
+    const word: Word = {
+      text: cleanWord,
+      startTime: currentTime,
+      endTime: currentTime,
+      meaning: 'Loading definition...',
+      translation: 'Loading translation...',
+      ipa: '/.../',
+      example: segments[activeSegmentIndex]?.text || ''
+    };
+    
+    setSelectedWord(word);
+    setIsSaved(vocabularyService.isWordSaved(cleanWord));
+    
+    // Attempt to fetch real details
+    try {
+      const entries = await vocabularyService.lookupWord(cleanWord);
+      if (entries && entries.length > 0) {
+        const entry = entries[0];
+        const meaning = entry.meanings[0]?.definitions[0]?.definition || 'Definition unavailable';
+        
+        setSelectedWord(prev => prev ? {
+          ...prev,
+          meaning,
+          ipa: entry.phonetic || entry.phonetics[0]?.text || '/.../'
+        } : null);
+      }
+    } catch (e) {
+      console.error('Lookup failed', e);
     }
   };
 
@@ -380,7 +393,7 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
       word: selectedWord.text,
       ipa: selectedWord.ipa || '/.../', 
       translation: selectedWord.translation || 'Translation unavailable', 
-      exampleSentence: selectedWord.example || 'Example unavailable', 
+      exampleSentence: segments[activeSegmentIndex]?.text || selectedWord.example || 'Example unavailable', 
       sourceSpeechId: speech.id,
       sourceSentenceId: segments[activeSegmentIndex]?.id
     };
@@ -553,29 +566,56 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
           
           {/* Focus Mode Subtitles Overlay */}
           <AnimatePresence mode="wait">
-            {(activeSegmentIndex !== -1 || (transcriptResult?.status === 'available' && segments.length > 0)) && (
+            {activeSegmentIndex !== -1 && (
               <motion.div 
-                key={activeSegmentIndex !== -1 ? segments[activeSegmentIndex].id : 'fallback-0'}
+                key={segments[activeSegmentIndex].id}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
                 transition={{ duration: 0.3 }}
-                className="absolute inset-x-0 bottom-12 px-12 text-center pointer-events-none flex justify-center"
+                className="absolute inset-x-0 bottom-12 px-12 text-center pointer-events-none flex flex-col items-center gap-4"
               >
-                <div className="bg-black/60 backdrop-blur-xl p-8 rounded-[2rem] border border-white/10 inline-block max-w-4xl shadow-2xl">
-                  <p className={`font-black text-white leading-tight tracking-tight ${
-                    subtitleSize === 'sm' ? 'text-xl' : subtitleSize === 'lg' ? 'text-4xl md:text-5xl' : 'text-3xl md:text-4xl'
-                  }`}>
-                    {activeSegmentIndex !== -1 ? segments[activeSegmentIndex].text : segments[0].text}
-                  </p>
-                  {showTranslation && (activeSegmentIndex !== -1 ? segments[activeSegmentIndex].translation : segments[0].translation) && (
+                {/* Previous Segment (Subtle) */}
+                {activeSegmentIndex > 0 && (
+                  <div className="opacity-20 scale-90 transition-all duration-500">
+                    <p className={`font-bold text-white/40 ${subtitleSize === 'sm' ? 'text-lg' : subtitleSize === 'lg' ? 'text-2xl' : 'text-xl'}`}>
+                      {segments[activeSegmentIndex - 1].text}
+                    </p>
+                  </div>
+                )}
+
+                <div className="bg-black/40 backdrop-blur-2xl p-8 rounded-[2.5rem] border border-white/10 inline-block max-w-4xl shadow-2xl pointer-events-auto">
+                  <div className="flex flex-wrap justify-center gap-x-2 gap-y-1">
+                    {segments[activeSegmentIndex].text.split(/\s+/).map((word, idx) => (
+                      <span 
+                        key={idx}
+                        onClick={(e) => handleWordClickFromText(word, e)}
+                        className={`cursor-pointer hover:text-primary transition-all inline-block font-black text-white leading-tight tracking-tight ${
+                          subtitleSize === 'sm' ? 'text-xl' : subtitleSize === 'lg' ? 'text-4xl md:text-5xl' : 'text-3xl md:text-4xl'
+                        }`}
+                      >
+                        {word}
+                      </span>
+                    ))}
+                  </div>
+                  
+                  {showTranslation && segments[activeSegmentIndex].translation && (
                     <p className={`mt-4 text-white/60 font-medium italic ${
                       subtitleSize === 'sm' ? 'text-sm' : subtitleSize === 'lg' ? 'text-2xl' : 'text-xl'
                     }`}>
-                      {activeSegmentIndex !== -1 ? segments[activeSegmentIndex].translation : segments[0].translation}
+                      {segments[activeSegmentIndex].translation}
                     </p>
                   )}
                 </div>
+
+                {/* Next Segment (Subtle) */}
+                {activeSegmentIndex < segments.length - 1 && (
+                  <div className="opacity-20 scale-90 transition-all duration-500">
+                    <p className={`font-bold text-white/40 ${subtitleSize === 'sm' ? 'text-lg' : subtitleSize === 'lg' ? 'text-2xl' : 'text-xl'}`}>
+                      {segments[activeSegmentIndex + 1].text}
+                    </p>
+                  </div>
+                )}
               </motion.div>
             )}
           </AnimatePresence>
@@ -801,9 +841,15 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
                     </div>
 
                   <div className="flex flex-wrap gap-x-3 gap-y-5 justify-center">
-                    <p className={`font-black text-center ${isActive ? 'text-primary' : 'text-slate-800'} ${subtitleSize === 'sm' ? 'text-xl' : subtitleSize === 'lg' ? 'text-4xl md:text-5xl' : 'text-3xl md:text-4xl'}`}>
-                      {segment.text}
-                    </p>
+                    {segment.text.split(/\s+/).map((word, idx) => (
+                      <span 
+                        key={idx}
+                        onClick={(e) => handleWordClickFromText(word, e)}
+                        className={`cursor-pointer hover:text-primary transition-all inline-block font-black text-center ${isActive ? 'text-primary' : 'text-slate-800'} ${subtitleSize === 'sm' ? 'text-xl' : subtitleSize === 'lg' ? 'text-4xl md:text-5xl' : 'text-3xl md:text-4xl'}`}
+                      >
+                        {word}
+                      </span>
+                    ))}
                   </div>
 
                   {/* Sentence Translation */}
@@ -877,22 +923,22 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
            )}
         </div>
 
-        <div className={`glass rounded-[3rem] p-4 flex items-center gap-3 shadow-2xl pointer-events-auto border transition-all duration-500 ${isFocusMode ? 'bg-white/5 border-white/10' : 'bg-white/80 border-white/30'} backdrop-blur-2xl`}>
+        <div className={`glass rounded-[3rem] p-3 flex items-center gap-2 shadow-2xl pointer-events-auto border transition-all duration-500 ${isFocusMode ? 'bg-white/5 border-white/10' : 'bg-white/80 border-white/30'} backdrop-blur-2xl`}>
           <button 
             onClick={togglePlaybackRate}
-            className={`w-12 h-12 rounded-full flex flex-col items-center justify-center transition-all ${playbackRate < 1 ? 'bg-primary text-white shadow-lg shadow-primary/20' : isFocusMode ? 'text-white/60 hover:bg-white/10' : 'text-slate-600 hover:bg-white/50'}`}
+            className={`w-10 h-10 rounded-full flex flex-col items-center justify-center transition-all ${playbackRate < 1 ? 'bg-primary text-white shadow-lg shadow-primary/20' : isFocusMode ? 'text-white/60 hover:bg-white/10' : 'text-slate-600 hover:bg-white/50'}`}
           >
-            <Zap size={16} className={playbackRate < 1 ? 'mb-0.5' : 'mb-0'} />
-            <span className="text-[10px] font-black">{playbackRate}x</span>
+            <Zap size={14} className={playbackRate < 1 ? 'mb-0.5' : 'mb-0'} />
+            <span className="text-[8px] font-black">{playbackRate}x</span>
           </button>
 
           <div className="relative">
             <button 
               onClick={() => setShowSizeControl(!showSizeControl)}
-              className={`w-12 h-12 rounded-full flex flex-col items-center justify-center transition-all ${showSizeControl ? 'bg-primary text-white shadow-lg shadow-primary/20' : isFocusMode ? 'text-white/60 hover:bg-white/10' : 'text-slate-600 hover:bg-white/50'}`}
+              className={`w-10 h-10 rounded-full flex flex-col items-center justify-center transition-all ${showSizeControl ? 'bg-primary text-white shadow-lg shadow-primary/20' : isFocusMode ? 'text-white/60 hover:bg-white/10' : 'text-slate-600 hover:bg-white/50'}`}
             >
-              <span className="text-[10px] font-black uppercase">{subtitleSize}</span>
-              <span className="text-[8px] font-bold opacity-50">SIZE</span>
+              <span className="text-[8px] font-black uppercase">{subtitleSize}</span>
+              <span className="text-[6px] font-bold opacity-50">SIZE</span>
             </button>
             
             <AnimatePresence>
@@ -907,7 +953,7 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
                     <button
                       key={size}
                       onClick={() => toggleSubtitleSize(size)}
-                      className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-colors ${
+                      className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors ${
                         subtitleSize === size ? 'bg-primary text-white' : 'hover:bg-slate-50 text-slate-600'
                       }`}
                     >
@@ -921,63 +967,63 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
           
           <button 
             onClick={toggleLoopMode}
-            className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${loopMode !== 'none' ? 'bg-accent text-white shadow-lg shadow-accent/20' : isFocusMode ? 'text-white/60 hover:bg-white/10' : 'text-slate-600 hover:bg-white/50'}`}
+            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${loopMode !== 'none' ? 'bg-accent text-white shadow-lg shadow-accent/20' : isFocusMode ? 'text-white/60 hover:bg-white/10' : 'text-slate-600 hover:bg-white/50'}`}
           >
-            <Repeat size={20} />
+            <Repeat size={16} />
           </button>
 
-          <div className={`w-px h-8 mx-1 ${isFocusMode ? 'bg-white/10' : 'bg-slate-200/50'}`} />
+          <div className={`w-px h-6 mx-1 ${isFocusMode ? 'bg-white/10' : 'bg-slate-200/50'}`} />
 
           <button 
             onClick={handleGoBack5s}
-            className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${isFocusMode ? 'text-white/60 hover:bg-white/10' : 'text-slate-600 hover:bg-white/50'}`}
+            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${isFocusMode ? 'text-white/60 hover:bg-white/10' : 'text-slate-600 hover:bg-white/50'}`}
             title="Go back 5 seconds"
           >
-            <SkipBack size={20} />
+            <SkipBack size={16} />
           </button>
 
           <button 
             onClick={handleRepeatSentence}
-            className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${isFocusMode ? 'text-white/60 hover:bg-white/10' : 'text-slate-600 hover:bg-white/50'}`}
+            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${isFocusMode ? 'text-white/60 hover:bg-white/10' : 'text-slate-600 hover:bg-white/50'}`}
             title="Repeat current sentence"
           >
-            <RotateCcw size={20} />
+            <RotateCcw size={16} />
           </button>
 
           <button 
             onClick={handleGoForward5s}
-            className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${isFocusMode ? 'text-white/60 hover:bg-white/10' : 'text-slate-600 hover:bg-white/50'}`}
+            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${isFocusMode ? 'text-white/60 hover:bg-white/10' : 'text-slate-600 hover:bg-white/50'}`}
             title="Go forward 5 seconds"
           >
-            <SkipForward size={20} />
+            <SkipForward size={16} />
           </button>
 
           <button 
             onClick={togglePlay}
-            className="w-20 h-20 rounded-full bg-gradient-to-br from-primary to-accent text-white flex items-center justify-center shadow-2xl hover:scale-105 active:scale-95 transition-all relative group"
+            className="w-14 h-14 rounded-full bg-gradient-to-br from-primary to-accent text-white flex items-center justify-center shadow-2xl hover:scale-105 active:scale-95 transition-all relative group"
           >
             <div className="absolute inset-0 bg-primary rounded-full blur-xl opacity-20 group-hover:opacity-40 transition-opacity" />
-            {isPlaying ? <Pause size={32} fill="currentColor" /> : <Play size={32} fill="currentColor" className="ml-1" />}
+            {isPlaying ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" className="ml-1" />}
           </button>
 
           <button 
             onClick={() => setAutoPause(!autoPause)}
-            className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${autoPause ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-200' : isFocusMode ? 'text-white/60 hover:bg-white/10' : 'text-slate-600 hover:bg-white/50'}`}
+            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${autoPause ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-200' : isFocusMode ? 'text-white/60 hover:bg-white/10' : 'text-slate-600 hover:bg-white/50'}`}
           >
-            <PlayCircle size={20} />
+            <PlayCircle size={16} />
           </button>
 
-          <div className={`w-px h-8 mx-1 ${isFocusMode ? 'bg-white/10' : 'bg-slate-200/50'}`} />
+          <div className={`w-px h-6 mx-1 ${isFocusMode ? 'bg-white/10' : 'bg-slate-200/50'}`} />
 
           <button 
             onClick={() => setIsRecording(!isRecording)}
-            className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${isRecording ? 'bg-rose-500 text-white animate-pulse shadow-lg shadow-rose-200' : isFocusMode ? 'text-white/60 hover:bg-white/10' : 'text-slate-600 hover:bg-white/50'}`}
+            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${isRecording ? 'bg-rose-500 text-white animate-pulse shadow-lg shadow-rose-200' : isFocusMode ? 'text-white/60 hover:bg-white/10' : 'text-slate-600 hover:bg-white/50'}`}
           >
-            <Mic size={20} />
+            <Mic size={16} />
           </button>
 
-          <button className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${isFocusMode ? 'text-white/60 hover:bg-white/10' : 'text-slate-600 hover:bg-white/50'}`}>
-            <Volume2 size={20} />
+          <button className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${isFocusMode ? 'text-white/60 hover:bg-white/10' : 'text-slate-600 hover:bg-white/50'}`}>
+            <Volume2 size={16} />
           </button>
         </div>
       </div>
@@ -1158,11 +1204,18 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
                   </div>
                 </div>
 
-                <div className="p-8 border-2 border-slate-50 rounded-[2.5rem] relative">
-                  <div className="absolute -top-3 left-8 bg-white px-3 text-[10px] font-black text-slate-300 uppercase tracking-[0.3em]">Example</div>
-                  <p className="text-slate-500 italic text-xl font-medium leading-relaxed">
-                    "{selectedWord.example || 'Example unavailable'}"
-                  </p>
+                <div className="p-8 border-2 border-slate-50 rounded-[2.5rem] relative space-y-4">
+                  <div className="absolute -top-3 left-8 bg-white px-3 text-[10px] font-black text-slate-300 uppercase tracking-[0.3em]">Contextual Examples</div>
+                  <div className="space-y-4">
+                    <p className="text-slate-500 italic text-xl font-medium leading-relaxed">
+                      "{selectedWord.example || 'Example unavailable'}"
+                    </p>
+                    {vocabularyService.getVocabularyWordByText(selectedWord.text)?.exampleSentence2 && (
+                      <p className="text-primary/60 italic text-lg font-medium leading-relaxed border-t border-slate-50 pt-4">
+                        "{vocabularyService.getVocabularyWordByText(selectedWord.text)?.exampleSentence2}"
+                      </p>
+                    )}
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
