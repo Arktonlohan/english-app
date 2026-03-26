@@ -160,7 +160,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onTabChange, onSelectSpeech 
                       <div className="space-y-1">
                         <p className="text-[10px] font-black text-soft-gray uppercase tracking-widest">Progress</p>
                         <p className="text-2xl font-black text-white glow-text">
-                          {Math.round((recentProgress!.completedSentenceIds.length / (recentSpeech!.transcript?.sentences.length || 1)) * 100)}%
+                          {Math.round((recentProgress!.completedSentenceIds.length / (recentSpeech!.transcript?.segments?.length || 1)) * 100)}%
                         </p>
                       </div>
                       <div className="space-y-1">
@@ -172,12 +172,12 @@ export const HomePage: React.FC<HomePageProps> = ({ onTabChange, onSelectSpeech 
                     <div className="space-y-2">
                       <div className="flex justify-between items-center text-[10px] font-black text-soft-gray uppercase tracking-widest">
                         <span>Course Completion</span>
-                        <span>{recentProgress!.completedSentenceIds.length} / {recentSpeech!.transcript?.sentences.length || 0} Sentences</span>
+                        <span>{recentProgress!.completedSentenceIds.length} / {recentSpeech!.transcript?.segments?.length || 0} Sentences</span>
                       </div>
                       <div className="w-full bg-white/5 h-3 rounded-full overflow-hidden p-0.5 border border-white/10">
                         <motion.div 
                           initial={{ width: 0 }}
-                          animate={{ width: `${(recentProgress!.completedSentenceIds.length / (recentSpeech!.transcript?.sentences.length || 1)) * 100}%` }}
+                          animate={{ width: `${(recentProgress!.completedSentenceIds.length / (recentSpeech!.transcript?.segments?.length || 1)) * 100}%` }}
                           transition={{ duration: 1.5, ease: "circOut" }}
                           className="h-full rounded-full gradient-primary shadow-neon"
                         />
@@ -224,7 +224,7 @@ export const HomePage: React.FC<HomePageProps> = ({ onTabChange, onSelectSpeech 
               <MessageSquare size={20} />
             </div>
             <div>
-              <p className="text-2xl font-black text-white glow-text">{todayStats.sentencesCompleted}</p>
+              <p className="text-2xl font-black text-white glow-text">{todayStats.segmentsCompleted}</p>
               <p className="text-[10px] font-black text-soft-gray uppercase tracking-widest">Sentences</p>
             </div>
           </Card>

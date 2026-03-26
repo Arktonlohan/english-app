@@ -113,6 +113,7 @@ class PronunciationService {
     if (durationRatio > 1.5) improvements.push("Try to reduce pauses between words for better flow.");
     if (score.intonation < 80) improvements.push("Work on rising and falling pitch at sentence ends.");
 
+    const verdict = this.generateVerdict(score);
     const feedback = this.generateFeedback(score);
     const phonemes = this.generatePhonemeFeedback(text);
     const words = this.generateWordFeedback(text);
@@ -123,6 +124,7 @@ class PronunciationService {
       timestamp: new Date().toISOString(),
       score,
       feedback,
+      verdict,
       strengths,
       improvements,
       phonemes,
@@ -135,6 +137,13 @@ class PronunciationService {
     await pronunciationRepository.saveAttempt(userId, attempt);
     this.notify();
     return attempt;
+  }
+
+  private generateVerdict(score: PronunciationScore): string {
+    if (score.overall >= 90) return "Exceptional! Your pronunciation is incredibly clear and natural. You've mastered the nuances of this phrase.";
+    if (score.overall >= 80) return "Impressive work. You have a strong grasp of the sounds, with only minor adjustments needed for perfection.";
+    if (score.overall >= 70) return "Good progress. You're communicating clearly, but focusing on specific vowel sounds will take you to the next level.";
+    return "A solid start. Let's focus on the core sounds and rhythm to build your confidence and clarity.";
   }
 
   private generateFeedback(score: PronunciationScore): string[] {
@@ -206,6 +215,7 @@ class PronunciationService {
           phoneme: data.symbol,
           score: isCorrect ? Math.round(85 + Math.random() * 15) : Math.round(40 + Math.random() * 30),
           feedback: data.feedback,
+          tip: data.tip,
           isCorrect
         });
       }

@@ -11,12 +11,12 @@ export interface DashboardData {
   overallStats: {
     totalTime: number;
     totalWords: number;
-    completedSentences: number;
+    completedSegments: number;
     difficultSentences: number;
   };
   todayStats: {
     timeSpent: number;
-    sentencesCompleted: number;
+    segmentsCompleted: number;
     wordsSaved: number;
     sessionCount: number;
   };
@@ -34,8 +34,8 @@ export const useDashboardData = () => {
   const [data, setData] = useState<DashboardData>({
     recentSpeech: null,
     recentProgress: null,
-    overallStats: { totalTime: 0, totalWords: 0, completedSentences: 0, difficultSentences: 0 },
-    todayStats: { timeSpent: 0, sentencesCompleted: 0, wordsSaved: 0, sessionCount: 0 },
+    overallStats: { totalTime: 0, totalWords: 0, completedSegments: 0, difficultSentences: 0 },
+    todayStats: { timeSpent: 0, segmentsCompleted: 0, wordsSaved: 0, sessionCount: 0 },
     flashcardStats: { dueToday: 0, totalCards: 0, retentionRate: 0, streak: 0 },
     user: null,
     isLoading: true,

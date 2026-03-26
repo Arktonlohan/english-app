@@ -15,6 +15,7 @@ export interface PhonemeFeedback {
   phoneme: string;
   score: number;
   feedback: string;
+  tip?: string;
   isCorrect: boolean;
 }
 
@@ -44,6 +45,7 @@ export interface PronunciationAttempt {
   improvements?: string[];
   phonemes?: PhonemeFeedback[];
   words?: WordFeedback[];
+  verdict?: string;
   audioUrl?: string;
   duration?: number;
 }
@@ -60,9 +62,23 @@ export interface PronunciationPracticeItem {
 export type Difficulty = 'Beginner' | 'Intermediate' | 'Advanced';
 export type Category = 'TED Talks' | 'Interviews' | 'Podcasts';
 
-export type TranscriptState = 'available' | 'loading' | 'unavailable' | 'mock' | 'error';
+export type TranscriptStatus = 'loading' | 'available' | 'unavailable' | 'mock' | 'error';
+export type TranscriptState = TranscriptStatus;
 export type ContentReadiness = 'ready' | 'processing' | 'no_transcript' | 'error';
 export type SpeechSourceType = 'curated' | 'youtube' | 'local';
+
+export interface TranscriptSegment {
+  id: string;
+  text: string;
+  start: number;
+  end: number;
+  translation?: string;
+}
+
+export interface TranscriptResult {
+  status: TranscriptStatus;
+  segments: TranscriptSegment[];
+}
 
 export interface Word {
   text: string;
@@ -200,7 +216,7 @@ export interface ShadowingSession {
   startTime: string;
   endTime?: string;
   duration: number; // in seconds
-  sentencesCompleted: number;
+  segmentsCompleted: number;
   difficultSentencesReviewed: number;
   wordsSaved: number;
 }

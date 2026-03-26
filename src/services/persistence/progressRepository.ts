@@ -149,7 +149,7 @@ class SupabaseProgressRepository implements ProgressRepository {
           start_time: session.startTime,
           end_time: session.endTime,
           duration: session.duration,
-          sentences_completed: session.sentencesCompleted,
+          sentences_completed: session.segmentsCompleted,
           difficult_sentences_reviewed: session.difficultSentencesReviewed,
           words_saved: session.wordsSaved
         }]);
@@ -197,7 +197,7 @@ class SupabaseProgressRepository implements ProgressRepository {
       startTime: dbSession.start_time,
       endTime: dbSession.end_time,
       duration: dbSession.duration,
-      sentencesCompleted: dbSession.sentences_completed,
+      segmentsCompleted: dbSession.sentences_completed,
       difficultSentencesReviewed: dbSession.difficult_sentences_reviewed,
       wordsSaved: dbSession.words_saved
     };

@@ -57,6 +57,9 @@ export const PronunciationPage: React.FC<PronunciationPageProps> = ({ initialIte
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const [volume, setVolume] = useState(0);
+  const [frequencyData, setFrequencyData] = useState<number[]>(new Array(12).fill(0));
+  const [isSilent, setIsSilent] = useState(false);
+  const silenceCounterRef = useRef(0);
 
   useEffect(() => {
     if (initialItem) {
@@ -140,16 +143,49 @@ export const PronunciationPage: React.FC<PronunciationPageProps> = ({ initialIte
         if (!analyserRef.current) return;
         const dataArray = new Uint8Array(analyser.frequencyBinCount);
         analyser.getByteFrequencyData(dataArray);
+        
+        // Calculate average volume
         const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
         setVolume(average);
+
+        // Silence detection
+        if (average < 5) {
+          silenceCounterRef.current += 1;
+          if (silenceCounterRef.current > 150) { // ~3 seconds at 60fps
+            setIsSilent(true);
+          }
+        } else {
+          silenceCounterRef.current = 0;
+          setIsSilent(false);
+        }
+
+        // Get frequency bands for visualization
+        const bands = 12;
+        const step = Math.floor(dataArray.length / bands);
+        const newFreqData = [];
+        for (let i = 0; i < bands; i++) {
+          let sum = 0;
+          for (let j = 0; j < step; j++) {
+            sum += dataArray[i * step + j];
+          }
+          newFreqData.push(sum / step);
+        }
+        setFrequencyData(newFreqData);
+        
         animationFrameRef.current = requestAnimationFrame(updateVolume);
       };
       updateVolume();
 
       // 4. Start recording
-      const mediaRecorder = new MediaRecorder(stream);
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') 
+        ? 'audio/webm;codecs=opus' 
+        : 'audio/ogg;codecs=opus';
+        
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
+      setIsSilent(false);
+      silenceCounterRef.current = 0;
 
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
@@ -504,10 +540,10 @@ export const PronunciationPage: React.FC<PronunciationPageProps> = ({ initialIte
                   />
                   <div className="absolute -top-12 left-1/2 -translate-x-1/2 whitespace-nowrap">
                     <div className="flex gap-1 items-end h-8">
-                      {[...Array(12)].map((_, i) => (
+                      {frequencyData.map((val, i) => (
                         <motion.div
                           key={i}
-                          animate={{ height: 4 + (Math.random() * volume / 2) }}
+                          animate={{ height: 4 + (val / 4) }}
                           className="w-1 bg-primary rounded-full"
                         />
                       ))}
@@ -516,6 +552,17 @@ export const PronunciationPage: React.FC<PronunciationPageProps> = ({ initialIte
                 </>
               )}
             </AnimatePresence>
+            
+            {isSilent && recordingState === 'recording' && (
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="absolute -bottom-16 left-1/2 -translate-x-1/2 bg-amber-50 text-amber-600 px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest border border-amber-100 shadow-sm z-20 flex items-center gap-2"
+              >
+                <AlertCircle size={12} />
+                No sound detected
+              </motion.div>
+            )}
             
             <button 
               onClick={recordingState === 'recording' ? stopRecording : startRecording}
@@ -601,6 +648,18 @@ export const PronunciationPage: React.FC<PronunciationPageProps> = ({ initialIte
           animate={{ y: 0, opacity: 1 }}
           className="space-y-4"
         >
+          <div className="p-6 bg-slate-50 rounded-[2rem] border border-slate-100 flex items-start gap-4">
+            <div className="w-10 h-10 rounded-2xl bg-white flex items-center justify-center text-primary shrink-0 shadow-sm">
+              <Info size={20} />
+            </div>
+            <div className="space-y-1">
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Pro Tip</p>
+              <p className="text-sm font-medium text-slate-600 leading-relaxed">
+                Speak clearly and at a natural pace. Ensure you're in a quiet environment for the most accurate analysis.
+              </p>
+            </div>
+          </div>
+
           <div className="flex items-center gap-5 p-6 bg-white rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50">
             <button 
               onClick={() => {
@@ -640,38 +699,60 @@ export const PronunciationPage: React.FC<PronunciationPageProps> = ({ initialIte
     </div>
   );
 
-  const renderAnalyzing = () => (
-    <div className="min-h-[70vh] flex flex-col items-center justify-center text-center space-y-10">
-      <div className="relative">
-        <motion.div 
-          animate={{ rotate: 360 }}
-          transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-          className="w-40 h-40 border-[6px] border-primary/5 border-t-primary rounded-full"
-        />
-        <div className="absolute inset-0 flex items-center justify-center">
-          <motion.div
-            animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
-            transition={{ duration: 2, repeat: Infinity }}
-            className="text-primary"
-          >
-            <Activity size={48} />
-          </motion.div>
+  const renderAnalyzing = () => {
+    const [messageIndex, setMessageIndex] = useState(0);
+    const messages = [
+      "Analyzing speech patterns...",
+      "Evaluating vowel clarity...",
+      "Checking syllable stress...",
+      "Measuring rhythm and flow...",
+      "Calculating expert feedback..."
+    ];
+
+    useEffect(() => {
+      const interval = setInterval(() => {
+        setMessageIndex(prev => (prev + 1) % messages.length);
+      }, 1500);
+      return () => clearInterval(interval);
+    }, []);
+
+    return (
+      <div className="min-h-[70vh] flex flex-col items-center justify-center text-center space-y-10">
+        <div className="relative">
+          <motion.div 
+            animate={{ rotate: 360 }}
+            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+            className="w-40 h-40 border-[6px] border-primary/5 border-t-primary rounded-full"
+          />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <motion.div
+              animate={{ scale: [1, 1.2, 1], opacity: [0.5, 1, 0.5] }}
+              transition={{ duration: 2, repeat: Infinity }}
+              className="text-primary"
+            >
+              <Activity size={48} />
+            </motion.div>
+          </div>
+        </div>
+        <div className="space-y-3">
+          <h2 className="text-3xl font-black text-slate-900 tracking-tight">
+            {messages[messageIndex]}
+          </h2>
+          <p className="text-slate-500 font-medium max-w-[280px] mx-auto">
+            Our AI is processing your recording to give you the most accurate feedback.
+          </p>
+        </div>
+        <div className="w-56 h-2 bg-slate-100 rounded-full overflow-hidden">
+          <motion.div 
+            initial={{ x: '-100%' }}
+            animate={{ x: '100%' }}
+            transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+            className="w-1/2 h-full bg-gradient-to-r from-transparent via-primary to-transparent"
+          />
         </div>
       </div>
-      <div className="space-y-3">
-        <h2 className="text-3xl font-black text-slate-900 tracking-tight">Analyzing Speech</h2>
-        <p className="text-slate-500 font-medium max-w-[280px] mx-auto">Evaluating accuracy, fluency, and intonation patterns...</p>
-      </div>
-      <div className="w-56 h-2 bg-slate-100 rounded-full overflow-hidden">
-        <motion.div 
-          initial={{ x: '-100%' }}
-          animate={{ x: '100%' }}
-          transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-          className="w-1/2 h-full bg-gradient-to-r from-transparent via-primary to-transparent"
-        />
-      </div>
-    </div>
-  );
+    );
+  };
 
   const renderResult = () => {
     if (!currentAttempt) return null;
@@ -701,7 +782,7 @@ export const PronunciationPage: React.FC<PronunciationPageProps> = ({ initialIte
             <Activity className="w-full h-full scale-150" />
           </div>
           
-          <div className="relative z-10 space-y-4">
+          <div className="relative z-10 space-y-6">
             <div className="space-y-1">
               <p className="text-[10px] font-black uppercase tracking-[0.4em] opacity-50">Pronunciation Score</p>
               <div className="flex items-center justify-center gap-4">
@@ -725,6 +806,12 @@ export const PronunciationPage: React.FC<PronunciationPageProps> = ({ initialIte
               </Badge>
             </div>
 
+            {currentAttempt.verdict && (
+              <p className="text-sm font-medium text-slate-300 max-w-[320px] mx-auto leading-relaxed italic">
+                "{currentAttempt.verdict}"
+              </p>
+            )}
+
             {bestScore !== null && (
               <div className="pt-4 flex items-center justify-center gap-3 text-[10px] font-black uppercase tracking-widest opacity-60">
                 <span>Personal Best: {bestScore}</span>
@@ -734,6 +821,31 @@ export const PronunciationPage: React.FC<PronunciationPageProps> = ({ initialIte
             )}
           </div>
         </Card>
+
+        {/* Comparison Section */}
+        <div className="grid grid-cols-2 gap-4">
+          <Button 
+            variant="outline" 
+            className="py-8 rounded-[2rem] border-slate-200 flex flex-col gap-2 h-auto"
+            onClick={playTargetAudio}
+          >
+            <Volume2 size={20} className="text-primary" />
+            <span className="text-[10px] font-black uppercase tracking-widest">Expert Audio</span>
+          </Button>
+          <Button 
+            variant="outline" 
+            className="py-8 rounded-[2rem] border-slate-200 flex flex-col gap-2 h-auto"
+            onClick={() => {
+              if (currentAttempt.audioUrl) {
+                const audio = new Audio(currentAttempt.audioUrl);
+                audio.play();
+              }
+            }}
+          >
+            <PlayCircle size={20} className="text-accent" />
+            <span className="text-[10px] font-black uppercase tracking-widest">Your Recording</span>
+          </Button>
+        </div>
 
         {/* Detailed Word Breakdown */}
         <div className="space-y-4">
@@ -859,9 +971,9 @@ export const PronunciationPage: React.FC<PronunciationPageProps> = ({ initialIte
                       <p className={`text-xs font-bold leading-relaxed ${p.isCorrect ? 'text-emerald-700' : 'text-rose-700'}`}>
                         {p.feedback}
                       </p>
-                      {!p.isCorrect && (
-                        <p className="text-[10px] font-medium text-rose-600/70 italic">
-                          Tip: Try placing your tongue slightly differently for a clearer sound.
+                      {p.tip && (
+                        <p className={`text-[10px] font-medium italic ${p.isCorrect ? 'text-emerald-600/70' : 'text-rose-600/70'}`}>
+                          Tip: {p.tip}
                         </p>
                       )}
                     </div>

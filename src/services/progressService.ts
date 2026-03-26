@@ -167,7 +167,7 @@ class ProgressService {
 
   async getTodayStats() {
     const userId = authService.getUserId();
-    if (!userId) return { timeSpent: 0, sentencesCompleted: 0, wordsSaved: 0, sessionCount: 0 };
+    if (!userId) return { timeSpent: 0, segmentsCompleted: 0, wordsSaved: 0, sessionCount: 0 };
 
     if (!this.isLoaded) await this.loadProgress(userId);
     const today = new Date().toDateString();
@@ -175,7 +175,7 @@ class ProgressService {
     
     return {
       timeSpent: todaySessions.reduce((acc, s) => acc + s.duration, 0),
-      sentencesCompleted: todaySessions.reduce((acc, s) => acc + s.sentencesCompleted, 0),
+      segmentsCompleted: todaySessions.reduce((acc, s) => acc + s.segmentsCompleted, 0),
       wordsSaved: todaySessions.reduce((acc, s) => acc + s.wordsSaved, 0),
       sessionCount: todaySessions.length
     };
@@ -183,18 +183,18 @@ class ProgressService {
 
   async getOverallStats() {
     const userId = authService.getUserId();
-    if (!userId) return { totalTime: 0, totalWords: 0, completedSentences: 0, difficultSentences: 0 };
+    if (!userId) return { totalTime: 0, totalWords: 0, completedSegments: 0, difficultSentences: 0 };
 
     if (!this.isLoaded) await this.loadProgress(userId);
     const totalTime = this.sessions.reduce((acc, s) => acc + s.duration, 0);
     const totalWords = this.sessions.reduce((acc, s) => acc + s.wordsSaved, 0);
-    const completedSentences = this.sessions.reduce((acc, s) => acc + s.sentencesCompleted, 0);
+    const completedSegments = this.sessions.reduce((acc, s) => acc + s.segmentsCompleted, 0);
     const difficultSentences = Object.values(this.progressMap).reduce((acc, p) => acc + p.difficultSentenceIds.length, 0);
 
     return {
       totalTime,
       totalWords,
-      completedSentences,
+      completedSegments,
       difficultSentences
     };
   }

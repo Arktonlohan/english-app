@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import YouTube, { YouTubeProps, YouTubePlayer } from 'react-youtube';
-import { Speech, Sentence, Word, Transcript } from '../types';
+import { Speech, Sentence, Word, Transcript, TranscriptResult, TranscriptSegment, TranscriptStatus } from '../types';
 import { Button, Card, Badge } from './UI';
 import { speechService } from '../services/speechService';
 import { vocabularyService } from '../services/vocabularyService';
@@ -68,7 +68,7 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
   const [subtitleSize, setSubtitleSize] = useState<'sm' | 'md' | 'lg'>(user?.preferences?.subtitleSize || 'md');
   
   // Transcript State
-  const [transcript, setTranscript] = useState<Transcript | undefined>(speech.transcript);
+  const [transcriptResult, setTranscriptResult] = useState<TranscriptResult | null>(null);
   const [isTranscriptLoading, setIsTranscriptLoading] = useState(false);
   const [isGeneratingTranscript, setIsGeneratingTranscript] = useState(false);
   const [transcriptError, setTranscriptError] = useState<string | null>(null);
@@ -89,44 +89,31 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
   // Fetch transcript if needed
   useEffect(() => {
     const fetchTranscript = async () => {
-      if (!transcript || transcript.state === 'loading') {
-        setIsTranscriptLoading(true);
-        setTranscriptError(null);
-        try {
-          const fetchedTranscript = await speechService.getTranscript(speech.id);
-          setTranscript(fetchedTranscript);
-        } catch (error) {
-          console.error('Failed to fetch transcript:', error);
-          setTranscriptError('Transcript unavailable for this video.');
-        } finally {
-          setIsTranscriptLoading(false);
-        }
+      setIsTranscriptLoading(true);
+      setTranscriptError(null);
+      try {
+        const result = await speechService.getTranscript(speech.id);
+        setTranscriptResult(result);
+      } catch (error) {
+        console.error('Failed to fetch transcript:', error);
+        setTranscriptError('Transcript unavailable for this video.');
+      } finally {
+        setIsTranscriptLoading(false);
       }
     };
 
     fetchTranscript();
-  }, [speech.id, transcript]);
+  }, [speech.id]);
 
-  const sentences = useMemo(() => {
-    return transcript?.sentences || [];
-  }, [transcript]);
+  const segments = useMemo(() => {
+    return transcriptResult?.segments || [];
+  }, [transcriptResult]);
 
-  const filteredSentences = useMemo(() => {
-    let filtered = sentences;
-    if (difficultMode) {
-      filtered = filtered.filter(s => difficultSentenceIds.includes(s.id));
-    }
-    if (bookmarksMode) {
-      filtered = filtered.filter(s => bookmarkedSentenceIds.includes(s.id));
-    }
-    return filtered;
-  }, [sentences, difficultMode, bookmarksMode, difficultSentenceIds, bookmarkedSentenceIds]);
-
-  const activeSentenceIndex = useMemo(() => {
-    return sentences.findIndex(
-      s => currentTime >= s.startTime && currentTime <= s.endTime
+  const activeSegmentIndex = useMemo(() => {
+    return segments.findIndex(
+      s => currentTime >= s.start && currentTime <= s.end
     );
-  }, [sentences, currentTime]);
+  }, [segments, currentTime]);
 
   // Load initial progress
   useEffect(() => {
@@ -135,7 +122,7 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
       setDifficultSentenceIds(progress.difficultSentenceIds);
       setCompletedSentenceIds(progress.completedSentenceIds);
       setBookmarkedSentenceIds(progress.bookmarkedSentenceIds || []);
-      const overall = await progressService.getOverallProgress(speech.id, sentences.length);
+      const overall = await progressService.getOverallProgress(speech.id, segments.length);
       setOverallProgress(overall);
       const savedCount = await vocabularyService.getSavedWordsCountForSpeech(speech.id);
       setSavedWordsCount(savedCount);
@@ -145,7 +132,7 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
       }
     };
     loadProgress();
-  }, [speech.id, sentences.length]);
+  }, [speech.id, segments.length]);
 
   // Session Tracking Cleanup
   useEffect(() => {
@@ -162,7 +149,7 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
             startTime: sessionStartTime.toISOString(),
             endTime: endTime.toISOString(),
             duration,
-            sentencesCompleted: currentProgress.completedSentenceIds.length,
+            segmentsCompleted: currentProgress.completedSentenceIds.length,
             difficultSentencesReviewed: currentProgress.difficultSentenceIds.length,
             wordsSaved: await vocabularyService.getSavedWordsCountForSpeech(speech.id)
           });
@@ -188,48 +175,48 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
         }
 
         // Mark sentence as completed if we've reached the end
-        if (activeSentenceIndex !== -1) {
-          const currentSentence = sentences[activeSentenceIndex];
-          if (time >= currentSentence.endTime - 0.5) {
-            await progressService.markSentenceCompleted(speech.id, currentSentence.id);
+        if (activeSegmentIndex !== -1) {
+          const currentSegment = segments[activeSegmentIndex];
+          if (time >= currentSegment.end - 0.5) {
+            await progressService.markSentenceCompleted(speech.id, currentSegment.id);
             setCompletedSentenceIds(prev => 
-              prev.includes(currentSentence.id) ? prev : [...prev, currentSentence.id]
+              prev.includes(currentSegment.id) ? prev : [...prev, currentSegment.id]
             );
-            const overall = await progressService.getOverallProgress(speech.id, sentences.length);
+            const overall = await progressService.getOverallProgress(speech.id, segments.length);
             setOverallProgress(overall);
           }
         }
 
         // Handle Auto-Pause
-        if (autoPause && activeSentenceIndex !== -1) {
-          const currentSentence = sentences[activeSentenceIndex];
-          if (time >= currentSentence.endTime - 0.1) {
+        if (autoPause && activeSegmentIndex !== -1) {
+          const currentSegment = segments[activeSegmentIndex];
+          if (time >= currentSegment.end - 0.1) {
             setIsPlaying(false);
             playerRef.current.pauseVideo();
           }
         }
 
         // Handle Looping
-        if ((loopMode === 'sentence' || isLoopingSentence) && activeSentenceIndex !== -1) {
-          const currentSentence = sentences[activeSentenceIndex];
-          if (time >= currentSentence.endTime) {
-            playerRef.current.seekTo(currentSentence.startTime, true);
+        if ((loopMode === 'sentence' || isLoopingSentence) && activeSegmentIndex !== -1) {
+          const currentSegment = segments[activeSegmentIndex];
+          if (time >= currentSegment.end) {
+            playerRef.current.seekTo(currentSegment.start, true);
           }
         }
 
         // Handle Difficult Mode Skipping
-        if (difficultMode && activeSentenceIndex !== -1) {
-          const currentSentence = sentences[activeSentenceIndex];
-          if (!difficultSentenceIds.includes(currentSentence.id) && time >= currentSentence.startTime) {
+        if (difficultMode && activeSegmentIndex !== -1) {
+          const currentSegment = segments[activeSegmentIndex];
+          if (!difficultSentenceIds.includes(currentSegment.id) && time >= currentSegment.start) {
             // Skip to next difficult sentence
-            const nextDifficult = sentences.find(s => s.startTime > time && difficultSentenceIds.includes(s.id));
+            const nextDifficult = segments.find(s => s.start > time && difficultSentenceIds.includes(s.id));
             if (nextDifficult) {
-              playerRef.current.seekTo(nextDifficult.startTime, true);
+              playerRef.current.seekTo(nextDifficult.start, true);
             } else {
               // No more difficult sentences, maybe stop or loop back
-              const firstDifficult = sentences.find(s => difficultSentenceIds.includes(s.id));
+              const firstDifficult = segments.find(s => difficultSentenceIds.includes(s.id));
               if (firstDifficult) {
-                playerRef.current.seekTo(firstDifficult.startTime, true);
+                playerRef.current.seekTo(firstDifficult.start, true);
               }
             }
           }
@@ -241,12 +228,12 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
     return () => {
       if (timeUpdateIntervalRef.current) clearInterval(timeUpdateIntervalRef.current);
     };
-  }, [isPlaying, autoPause, loopMode, activeSentenceIndex, sentences, speech.id, difficultMode, difficultSentenceIds]);
+  }, [isPlaying, autoPause, loopMode, activeSegmentIndex, segments, speech.id, difficultMode, difficultSentenceIds]);
 
   // Auto-scroll transcript
   useEffect(() => {
-    if (activeSentenceIndex !== -1 && transcriptContainerRef.current) {
-      const activeElement = transcriptContainerRef.current.children[activeSentenceIndex] as HTMLElement;
+    if (activeSegmentIndex !== -1 && transcriptContainerRef.current) {
+      const activeElement = transcriptContainerRef.current.children[activeSegmentIndex] as HTMLElement;
       if (activeElement) {
         activeElement.scrollIntoView({
           behavior: 'smooth',
@@ -254,7 +241,7 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
         });
       }
     }
-  }, [activeSentenceIndex]);
+  }, [activeSegmentIndex]);
 
   const onPlayerReady: YouTubeProps['onReady'] = async (event) => {
     playerRef.current = event.target;
@@ -307,6 +294,28 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
       playerRef.current.pauseVideo();
     } else {
       playerRef.current.playVideo();
+    }
+  };
+
+  const handleRepeatSentence = () => {
+    if (activeSegmentIndex !== -1 && playerRef.current) {
+      const currentSegment = segments[activeSegmentIndex];
+      playerRef.current.seekTo(currentSegment.start, true);
+      playerRef.current.playVideo();
+    }
+  };
+
+  const handleGoBack5s = () => {
+    if (playerRef.current) {
+      const newTime = Math.max(0, currentTime - 5);
+      playerRef.current.seekTo(newTime, true);
+    }
+  };
+
+  const handleGoForward5s = () => {
+    if (playerRef.current) {
+      const newTime = currentTime + 5;
+      playerRef.current.seekTo(newTime, true);
     }
   };
   
@@ -365,7 +374,7 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
       translation: selectedWord.translation || 'Translation unavailable', 
       exampleSentence: selectedWord.example || 'Example unavailable', 
       sourceSpeechId: speech.id,
-      sourceSentenceId: sentences[activeSentenceIndex]?.id
+      sourceSentenceId: segments[activeSegmentIndex]?.id
     };
 
     await vocabularyService.addWord(wordToSave);
@@ -434,7 +443,7 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
     setTranscriptError(null);
     try {
       const newTranscript = await speechService.generateAITranscript(speech.id);
-      setTranscript(newTranscript);
+      setTranscriptResult(newTranscript);
     } catch (error) {
       console.error('Failed to generate AI transcript:', error);
       setTranscriptError('AI Transcription failed. Please try again later.');
@@ -535,25 +544,27 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
           )}
           
           {/* Focus Mode Subtitles Overlay */}
-          <AnimatePresence>
-            {isFocusMode && activeSentenceIndex !== -1 && (
+          <AnimatePresence mode="wait">
+            {activeSegmentIndex !== -1 && (
               <motion.div 
+                key={segments[activeSegmentIndex].id}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
-                className="absolute inset-x-0 bottom-12 px-12 text-center pointer-events-none"
+                transition={{ duration: 0.3 }}
+                className="absolute inset-x-0 bottom-12 px-12 text-center pointer-events-none flex justify-center"
               >
-                <div className="bg-black/60 backdrop-blur-xl p-8 rounded-[2rem] border border-white/10 inline-block max-w-4xl">
+                <div className="bg-black/60 backdrop-blur-xl p-8 rounded-[2rem] border border-white/10 inline-block max-w-4xl shadow-2xl">
                   <p className={`font-black text-white leading-tight tracking-tight ${
                     subtitleSize === 'sm' ? 'text-xl' : subtitleSize === 'lg' ? 'text-4xl md:text-5xl' : 'text-3xl md:text-4xl'
                   }`}>
-                    {sentences[activeSentenceIndex].text}
+                    {segments[activeSegmentIndex].text}
                   </p>
-                  {showTranslation && (
+                  {showTranslation && segments[activeSegmentIndex].translation && (
                     <p className={`mt-4 text-white/60 font-medium italic ${
                       subtitleSize === 'sm' ? 'text-sm' : subtitleSize === 'lg' ? 'text-2xl' : 'text-xl'
                     }`}>
-                      {sentences[activeSentenceIndex].translation}
+                      {segments[activeSegmentIndex].translation}
                     </p>
                   )}
                 </div>
@@ -595,7 +606,7 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
                 <div className="flex gap-6">
                   <div className="text-right">
                     <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Sentences</p>
-                    <p className="text-sm font-bold text-slate-600">{completedSentenceIds.length} / {sentences.length}</p>
+                    <p className="text-sm font-bold text-slate-600">{completedSentenceIds.length} / {segments.length}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Difficult</p>
@@ -650,7 +661,7 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
                 <p className="text-slate-500 font-medium animate-pulse">Our AI is listening and transcribing the content...</p>
               </div>
             </div>
-          ) : transcript?.state === 'unavailable' || transcriptError ? (
+          ) : transcriptResult.status === 'unavailable' || transcriptResult.status === 'error' ? (
             <Card className="p-12 border-none bg-slate-50 rounded-[3.5rem] text-center space-y-8 relative overflow-hidden">
               <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -mr-32 -mt-32" />
               
@@ -685,8 +696,7 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
                   className="rounded-[1.5rem] py-4 font-black text-sm flex items-center justify-center gap-3 border-2"
                   onClick={() => {
                     // Force a mock transcript for study
-                    setTranscript(speechService.generateMockTranscript(speech.id));
-                    setTranscriptError(null);
+                    setTranscriptResult(speechService.generateMockTranscript(speech.id));
                   }}
                 >
                   <PlayCircle size={18} />
@@ -698,19 +708,12 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
                 </p>
               </div>
             </Card>
-          ) : filteredSentences.length === 0 ? (
+          ) : segments.length === 0 ? (
             <div className="text-center py-20 space-y-4">
               <div className="w-16 h-16 rounded-full bg-slate-50 flex items-center justify-center text-slate-300 mx-auto">
                 <AlertCircle size={32} />
               </div>
-              <p className="text-slate-400 font-bold">No sentences found matching your filters.</p>
-              <div className="flex justify-center gap-3">
-                {(difficultMode || bookmarksMode) && (
-                  <Button variant="secondary" onClick={() => { setDifficultMode(false); setBookmarksMode(false); }}>
-                    Clear All Filters
-                  </Button>
-                )}
-              </div>
+              <p className="text-slate-400 font-bold">No transcript segments available for this video.</p>
             </div>
           ) : (
             <div 
@@ -718,47 +721,40 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
               className="space-y-12"
             >
               {/* Transcript Source Info */}
-              {transcript && transcript.state !== 'unavailable' && (
+              {transcriptResult && transcriptResult.status !== 'unavailable' && (
                 <div className="flex flex-col items-center justify-center gap-4 pb-12">
                   <div className="flex items-center gap-4">
                     <div className={`flex items-center gap-2 px-4 py-1.5 rounded-full border shadow-sm ${
-                      transcript.state === 'mock' 
+                      transcriptResult.status === 'mock' 
                         ? 'bg-amber-50 border-amber-100 text-amber-600' 
                         : 'bg-emerald-50 border-emerald-100 text-emerald-600'
                     }`}>
                       <div className={`w-2 h-2 rounded-full animate-pulse ${
-                        transcript.state === 'mock' ? 'bg-amber-500' : 'bg-emerald-500'
+                        transcriptResult.status === 'mock' ? 'bg-amber-500' : 'bg-emerald-500'
                       }`} />
                       <span className="text-[10px] font-black uppercase tracking-widest">
-                        {transcript.state === 'mock' ? 'Sample Practice Mode' : 'Verified Transcript'}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 px-4 py-1.5 bg-slate-50 rounded-full border border-slate-100 shadow-sm">
-                      <Brain size={12} className="text-primary" />
-                      <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                        Interactive Study
+                        {transcriptResult.status === 'mock' ? 'Sample Practice Mode' : 'Verified Transcript'}
                       </span>
                     </div>
                   </div>
-                  {transcript.state === 'mock' && (
-                    <p className="text-[10px] font-bold text-amber-500/80 uppercase tracking-widest text-center max-w-xs">
-                      Note: This is a generic sample transcript for rhythm practice, not the actual video content.
-                    </p>
-                  )}
                 </div>
               )}
 
-              {filteredSentences.map((sentence) => {
-                const sIdx = sentences.findIndex(s => s.id === sentence.id);
-                const isDifficult = difficultSentenceIds.includes(sentence.id);
-                const isCompleted = completedSentenceIds.includes(sentence.id);
-                const isBookmarked = bookmarkedSentenceIds.includes(sentence.id);
-                const isActive = sIdx === activeSentenceIndex;
+              {segments.map((segment, sIdx) => {
+                const isDifficult = difficultSentenceIds.includes(segment.id);
+                const isCompleted = completedSentenceIds.includes(segment.id);
+                const isBookmarked = bookmarkedSentenceIds.includes(segment.id);
+                const isActive = sIdx === activeSegmentIndex;
                 
                 return (
                   <motion.div
-                    key={sentence.id}
-                    onClick={() => handleSentenceClick(sentence)}
+                    key={segment.id}
+                    onClick={() => {
+                      if (playerRef.current) {
+                        playerRef.current.seekTo(segment.start, true);
+                        playerRef.current.playVideo();
+                      }
+                    }}
                     className={`
                       relative p-12 rounded-[3.5rem] transition-all duration-500 cursor-pointer group border-2
                       ${isActive 
@@ -769,7 +765,7 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
                       ${isBookmarked && !isActive ? 'border-amber-100 bg-amber-50/10' : ''}
                     `}
                     animate={{
-                      opacity: isActive ? 1 : (difficultMode ? 1 : (isCompleted ? 0.6 : 0.9))
+                      opacity: isActive ? 1 : (isCompleted ? 0.6 : 0.9)
                     }}
                   >
                     {/* Sentence Status Badges */}
@@ -788,7 +784,13 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
                     {/* Sentence Controls */}
                     <div className="absolute -right-6 top-1/2 -translate-y-1/2 flex flex-col gap-3 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-4 group-hover:translate-x-0 z-10">
                        <button 
-                        onClick={(e) => { e.stopPropagation(); handleSentenceClick(sentence); }}
+                        onClick={(e) => { 
+                          e.stopPropagation(); 
+                          if (playerRef.current) {
+                            playerRef.current.seekTo(segment.start, true);
+                            playerRef.current.playVideo();
+                          }
+                        }}
                         className="w-12 h-12 rounded-2xl bg-white shadow-xl flex items-center justify-center text-slate-400 hover:text-primary transition-all hover:scale-110 active:scale-95 border border-slate-50"
                         title="Replay Sentence"
                        >
@@ -797,21 +799,7 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
                        <button 
                         onClick={(e) => { 
                           e.stopPropagation(); 
-                          if (isActive) toggleLoopSentence();
-                          else {
-                            handleSentenceClick(sentence);
-                            setIsLoopingSentence(true);
-                          }
-                        }}
-                        className={`w-12 h-12 rounded-2xl bg-white shadow-xl flex items-center justify-center transition-all hover:scale-110 active:scale-95 border border-slate-50 ${isActive && isLoopingSentence ? 'text-primary' : 'text-slate-400 hover:text-primary'}`}
-                        title="Loop Sentence"
-                       >
-                          <Repeat size={18} />
-                       </button>
-                       <button 
-                        onClick={(e) => { 
-                          e.stopPropagation(); 
-                          toggleBookmark(sentence.id);
+                          toggleBookmark(segment.id);
                         }}
                         className={`w-12 h-12 rounded-2xl bg-white shadow-xl flex items-center justify-center transition-all hover:scale-110 active:scale-95 border border-slate-50 ${isBookmarked ? 'text-amber-500' : 'text-slate-400 hover:text-amber-500'}`}
                         title="Bookmark Sentence"
@@ -819,21 +807,7 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
                           <Bookmark size={18} fill={isBookmarked ? "currentColor" : "none"} />
                        </button>
                        <button 
-                        onClick={(e) => { 
-                          e.stopPropagation(); 
-                          onPracticePronunciation?.({
-                            text: sentence.text,
-                            ipa: ''
-                          });
-                          onBack();
-                        }}
-                        className="w-12 h-12 rounded-2xl bg-white shadow-xl flex items-center justify-center text-slate-400 hover:text-primary transition-all hover:scale-110 active:scale-95 border border-slate-50"
-                        title="Practice Pronunciation"
-                       >
-                          <Mic size={18} />
-                       </button>
-                       <button 
-                        onClick={(e) => { e.stopPropagation(); toggleDifficult(sentence.id); }}
+                        onClick={(e) => { e.stopPropagation(); toggleDifficult(segment.id); }}
                         className={`w-12 h-12 rounded-2xl bg-white shadow-xl flex items-center justify-center transition-all hover:scale-110 active:scale-95 border border-slate-50 ${isDifficult ? 'text-rose-500' : 'text-slate-400 hover:text-rose-500'}`}
                         title="Mark as Difficult"
                        >
@@ -842,37 +816,14 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
                     </div>
 
                   <div className="flex flex-wrap gap-x-3 gap-y-5 justify-center">
-                    {sentence.words.map((wordObj, wIdx) => {
-                      const isWordActive = currentTime >= wordObj.startTime && currentTime <= wordObj.endTime;
-                      return (
-                        <motion.span
-                          key={wIdx}
-                          onClick={(e) => handleWordClick(wordObj, e)}
-                          className={`
-                            font-black cursor-pointer transition-all duration-300 rounded-2xl px-2 py-1 relative
-                            ${isWordActive 
-                              ? 'text-primary' 
-                              : 'text-slate-800 hover:bg-slate-100'}
-                            ${subtitleSize === 'sm' ? 'text-xl' : subtitleSize === 'lg' ? 'text-4xl md:text-5xl' : 'text-3xl md:text-4xl'}
-                          `}
-                        >
-                          {isWordActive && (
-                            <motion.span 
-                              layoutId="glow"
-                              className="absolute inset-0 bg-primary/10 blur-xl rounded-full -z-10"
-                              initial={{ opacity: 0 }}
-                              animate={{ opacity: 1 }}
-                            />
-                          )}
-                          {wordObj.text}
-                        </motion.span>
-                      );
-                    })}
+                    <p className={`font-black text-center ${isActive ? 'text-primary' : 'text-slate-800'} ${subtitleSize === 'sm' ? 'text-xl' : subtitleSize === 'lg' ? 'text-4xl md:text-5xl' : 'text-3xl md:text-4xl'}`}>
+                      {segment.text}
+                    </p>
                   </div>
 
                   {/* Sentence Translation */}
                   <AnimatePresence>
-                    {showTranslation && (
+                    {showTranslation && segment.translation && (
                       <motion.div 
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
@@ -886,7 +837,7 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
                           </span>
                         </div>
                         <p className="text-slate-500 font-medium text-xl leading-relaxed italic">
-                          {sentence.translation || "Translation unavailable"}
+                          {segment.translation}
                         </p>
                       </motion.div>
                     )}
@@ -993,15 +944,27 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
           <div className={`w-px h-8 mx-1 ${isFocusMode ? 'bg-white/10' : 'bg-slate-200/50'}`} />
 
           <button 
-            onClick={() => {
-              if (playerRef.current) {
-                const time = playerRef.current.getCurrentTime();
-                playerRef.current.seekTo(Math.max(0, time - 5), true);
-              }
-            }}
+            onClick={handleGoBack5s}
             className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${isFocusMode ? 'text-white/60 hover:bg-white/10' : 'text-slate-600 hover:bg-white/50'}`}
+            title="Go back 5 seconds"
           >
-            <History size={20} />
+            <SkipBack size={20} />
+          </button>
+
+          <button 
+            onClick={handleRepeatSentence}
+            className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${isFocusMode ? 'text-white/60 hover:bg-white/10' : 'text-slate-600 hover:bg-white/50'}`}
+            title="Repeat current sentence"
+          >
+            <RotateCcw size={20} />
+          </button>
+
+          <button 
+            onClick={handleGoForward5s}
+            className={`w-12 h-12 rounded-full flex items-center justify-center transition-all ${isFocusMode ? 'text-white/60 hover:bg-white/10' : 'text-slate-600 hover:bg-white/50'}`}
+            title="Go forward 5 seconds"
+          >
+            <SkipForward size={20} />
           </button>
 
           <button 
