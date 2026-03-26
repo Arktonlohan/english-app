@@ -110,9 +110,17 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
   }, [transcriptResult]);
 
   const activeSegmentIndex = useMemo(() => {
+    if (!segments.length) return -1;
+    
+    // Find the segment that contains the current time
     const idx = segments.findIndex(
       s => currentTime >= s.start && currentTime < s.end
     );
+    
+    // If no exact match, find the closest upcoming segment
+    if (idx === -1) {
+      return segments.findIndex(s => s.start > currentTime);
+    }
     
     return idx;
   }, [segments, currentTime]);
@@ -164,8 +172,12 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
 
   // Sync current time with YouTube player
   useEffect(() => {
+    let interval: NodeJS.Timeout;
+
     if (isPlaying && playerRef.current) {
-      timeUpdateIntervalRef.current = setInterval(async () => {
+      interval = setInterval(async () => {
+        if (!playerRef.current) return;
+        
         const time = playerRef.current.getCurrentTime();
         setCurrentTime(time);
 
@@ -223,14 +235,13 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
             }
           }
         }
-      }, 100);
-    } else {
-      if (timeUpdateIntervalRef.current) clearInterval(timeUpdateIntervalRef.current);
+      }, 50); // More frequent updates for smoother sync
     }
+
     return () => {
-      if (timeUpdateIntervalRef.current) clearInterval(timeUpdateIntervalRef.current);
+      if (interval) clearInterval(interval);
     };
-  }, [isPlaying, autoPause, loopMode, activeSegmentIndex, segments, speech.id, difficultMode, difficultSentenceIds]);
+  }, [isPlaying, autoPause, loopMode, activeSegmentIndex, segments, speech.id, difficultMode, difficultSentenceIds, isLoopingSentence]);
 
   // Auto-scroll transcript
   useEffect(() => {
@@ -565,60 +576,81 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
           )}
           
           {/* Focus Mode Subtitles Overlay */}
-          <AnimatePresence mode="wait">
-            {activeSegmentIndex !== -1 && (
-              <motion.div 
-                key={segments[activeSegmentIndex].id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                transition={{ duration: 0.3 }}
-                className="absolute inset-x-0 bottom-12 px-12 text-center pointer-events-none flex flex-col items-center gap-4"
-              >
-                {/* Previous Segment (Subtle) */}
-                {activeSegmentIndex > 0 && (
-                  <div className="opacity-20 scale-90 transition-all duration-500">
-                    <p className={`font-bold text-white/40 ${subtitleSize === 'sm' ? 'text-lg' : subtitleSize === 'lg' ? 'text-2xl' : 'text-xl'}`}>
-                      {segments[activeSegmentIndex - 1].text}
-                    </p>
-                  </div>
-                )}
+          <div className="absolute inset-x-0 bottom-12 px-6 md:px-12 text-center pointer-events-none flex flex-col items-center gap-6">
+            <AnimatePresence mode="popLayout">
+              {activeSegmentIndex !== -1 && (
+                <motion.div 
+                  key={segments[activeSegmentIndex].id}
+                  initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -20, scale: 0.95 }}
+                  transition={{ 
+                    type: "spring",
+                    stiffness: 300,
+                    damping: 30,
+                    opacity: { duration: 0.2 }
+                  }}
+                  className="flex flex-col items-center gap-6 w-full max-w-5xl"
+                >
+                  {/* Previous Segment (Subtle) */}
+                  {activeSegmentIndex > 0 && (
+                    <motion.div 
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 0.15 }}
+                      className="scale-90 transition-all duration-700 hidden md:block"
+                    >
+                      <p className={`font-bold text-white/40 line-clamp-1 ${subtitleSize === 'sm' ? 'text-lg' : subtitleSize === 'lg' ? 'text-2xl' : 'text-xl'}`}>
+                        {segments[activeSegmentIndex - 1].text}
+                      </p>
+                    </motion.div>
+                  )}
 
-                <div className="bg-black/40 backdrop-blur-2xl p-8 rounded-[2.5rem] border border-white/10 inline-block max-w-4xl shadow-2xl pointer-events-auto">
-                  <div className="flex flex-wrap justify-center gap-x-2 gap-y-1">
-                    {segments[activeSegmentIndex].text.split(/\s+/).map((word, idx) => (
-                      <span 
-                        key={idx}
-                        onClick={(e) => handleWordClickFromText(word, e)}
-                        className={`cursor-pointer hover:text-primary transition-all inline-block font-black text-white leading-tight tracking-tight ${
-                          subtitleSize === 'sm' ? 'text-xl' : subtitleSize === 'lg' ? 'text-4xl md:text-5xl' : 'text-3xl md:text-4xl'
+                  <div className="bg-black/60 backdrop-blur-3xl p-6 md:p-10 rounded-[3rem] border border-white/10 inline-block shadow-2xl pointer-events-auto ring-1 ring-white/5">
+                    <div className="flex flex-wrap justify-center gap-x-3 gap-y-2">
+                      {segments[activeSegmentIndex].text.split(/\s+/).map((word, idx) => (
+                        <motion.span 
+                          key={idx}
+                          whileHover={{ scale: 1.1, color: '#FF6321' }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={(e) => handleWordClickFromText(word, e)}
+                          className={`cursor-pointer transition-colors inline-block font-black text-white leading-tight tracking-tight drop-shadow-sm ${
+                            subtitleSize === 'sm' ? 'text-xl' : subtitleSize === 'lg' ? 'text-4xl md:text-6xl' : 'text-3xl md:text-5xl'
+                          }`}
+                        >
+                          {word}
+                        </motion.span>
+                      ))}
+                    </div>
+                    
+                    {showTranslation && segments[activeSegmentIndex].translation && (
+                      <motion.p 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className={`mt-6 text-white/50 font-medium italic tracking-wide ${
+                          subtitleSize === 'sm' ? 'text-sm' : subtitleSize === 'lg' ? 'text-2xl' : 'text-xl'
                         }`}
                       >
-                        {word}
-                      </span>
-                    ))}
+                        {segments[activeSegmentIndex].translation}
+                      </motion.p>
+                    )}
                   </div>
-                  
-                  {showTranslation && segments[activeSegmentIndex].translation && (
-                    <p className={`mt-4 text-white/60 font-medium italic ${
-                      subtitleSize === 'sm' ? 'text-sm' : subtitleSize === 'lg' ? 'text-2xl' : 'text-xl'
-                    }`}>
-                      {segments[activeSegmentIndex].translation}
-                    </p>
-                  )}
-                </div>
 
-                {/* Next Segment (Subtle) */}
-                {activeSegmentIndex < segments.length - 1 && (
-                  <div className="opacity-20 scale-90 transition-all duration-500">
-                    <p className={`font-bold text-white/40 ${subtitleSize === 'sm' ? 'text-lg' : subtitleSize === 'lg' ? 'text-2xl' : 'text-xl'}`}>
-                      {segments[activeSegmentIndex + 1].text}
-                    </p>
-                  </div>
-                )}
-              </motion.div>
-            )}
-          </AnimatePresence>
+                  {/* Next Segment (Subtle) */}
+                  {activeSegmentIndex < segments.length - 1 && (
+                    <motion.div 
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 0.15 }}
+                      className="scale-90 transition-all duration-700 hidden md:block"
+                    >
+                      <p className={`font-bold text-white/40 line-clamp-1 ${subtitleSize === 'sm' ? 'text-lg' : subtitleSize === 'lg' ? 'text-2xl' : 'text-xl'}`}>
+                        {segments[activeSegmentIndex + 1].text}
+                      </p>
+                    </motion.div>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
           
           {/* Custom Play Overlay */}
           {!isPlaying && videoId && (

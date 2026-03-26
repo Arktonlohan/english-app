@@ -71,9 +71,11 @@ class SpeechService {
     // 1. Check curated speeches
     const curatedSpeech = MOCK_SPEECHES.find(s => s.id === speechId);
     if (curatedSpeech && curatedSpeech.transcript && curatedSpeech.transcript.segments.length > 0) {
+      // Sort segments by start time to ensure correct order
+      const sortedSegments = [...curatedSpeech.transcript.segments].sort((a, b) => a.start - b.start);
       return {
         status: 'available',
-        segments: curatedSpeech.transcript.segments
+        segments: sortedSegments
       };
     }
 

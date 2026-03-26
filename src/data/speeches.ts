@@ -23,7 +23,11 @@ export const MOCK_SPEECHES: Speech[] = [
         { id: 'ted-1-s1', start: 0, end: 4.5, text: "I'd like to start by asking you a question.", translation: "Me gustaría empezar haciéndoles una pregunta." },
         { id: 'ted-1-s2', start: 4.5, end: 8.0, text: "Have you ever felt like you're talking, but nobody is listening?", translation: "¿Alguna vez has sentido que estás hablando, pero nadie te escucha?" },
         { id: 'ted-1-s3', start: 8.0, end: 12.5, text: "We all have that experience, and it's quite a common one.", translation: "Todos tenemos esa experiencia, y es bastante común." },
-        { id: 'ted-1-s4', start: 12.5, end: 16.0, text: "The human voice is the instrument we all play.", translation: "La voz humana es el instrumento que todos tocamos." }
+        { id: 'ted-1-s4', start: 12.5, end: 16.0, text: "The human voice is the instrument we all play.", translation: "La voz humana es el instrumento que todos tocamos." },
+        { id: 'ted-1-s5', start: 16.0, end: 20.5, text: "It's the most powerful sound in the world, probably.", translation: "Es el sonido más poderoso del mundo, probablemente." },
+        { id: 'ted-1-s6', start: 20.5, end: 25.0, text: "It's the only one that can start a war or say 'I love you'.", translation: "Es el único que puede iniciar una guerra o decir 'te amo'." },
+        { id: 'ted-1-s7', start: 25.0, end: 30.0, text: "And yet many people have the experience that when they speak, people don't listen.", translation: "Y sin embargo, muchas personas tienen la experiencia de que cuando hablan, la gente no escucha." },
+        { id: 'ted-1-s8', start: 30.0, end: 35.5, text: "Why is that? How can we speak powerfully to make change in the world?", translation: "¿Por qué es eso? ¿Cómo podemos hablar con poder para generar cambios en el mundo?" }
       ]
     }
   },
