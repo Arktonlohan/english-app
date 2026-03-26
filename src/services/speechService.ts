@@ -70,16 +70,35 @@ class SpeechService {
 
     // 1. Check curated speeches
     const curatedSpeech = MOCK_SPEECHES.find(s => s.id === speechId);
-    if (curatedSpeech && curatedSpeech.transcript && curatedSpeech.transcript.segments.length > 0) {
-      // Sort segments by start time to ensure correct order
-      const sortedSegments = [...curatedSpeech.transcript.segments].sort((a, b) => a.start - b.start);
+    if (curatedSpeech) {
+      if (curatedSpeech.transcript && curatedSpeech.transcript.segments.length > 0) {
+        // Sort segments by start time to ensure correct order
+        const sortedSegments = [...curatedSpeech.transcript.segments].sort((a, b) => a.start - b.start);
+        return {
+          status: 'available',
+          segments: sortedSegments
+        };
+      } else {
+        return {
+          status: 'unavailable',
+          segments: []
+        };
+      }
+    }
+
+    // 2. For YouTube videos, use existing logic (mocked for now)
+    if (speechId.startsWith('yt-')) {
+      await new Promise(resolve => setTimeout(resolve, 1500));
       return {
         status: 'available',
-        segments: sortedSegments
+        segments: [
+          { id: 'yt-s1', start: 0, end: 5, text: "This is a simulated transcript for the imported YouTube video.", translation: "Esta es una transcripción simulada para el video de YouTube importado." },
+          { id: 'yt-s2', start: 5, end: 10, text: "In a real application, this would be fetched from a transcript service.", translation: "En una aplicación real, esto se obtendría de un servicio de transcripción." },
+          { id: 'yt-s3', start: 10, end: 15, text: "The shadowing experience works exactly the same way.", translation: "La experiencia de shadowing funciona exactamente de la misma manera." }
+        ]
       };
     }
 
-    // 2. For YouTube videos or curated without transcript, return unavailable
     return {
       status: 'unavailable',
       segments: []
