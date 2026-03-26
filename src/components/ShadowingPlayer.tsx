@@ -647,6 +647,66 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
                   <p className="text-slate-500 font-medium animate-pulse">Syncing transcript with video timeline...</p>
                 </div>
               </div>
+            ) : (transcriptResult?.status === 'unavailable' || segments.length === 0) ? (
+              <div className="py-12 flex flex-col items-center text-center px-4">
+                <motion.div 
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className={`max-w-md w-full p-10 rounded-[3rem] border-2 border-dashed transition-all duration-500 ${
+                    isFocusMode ? 'bg-white/5 border-white/10' : 'bg-slate-50 border-slate-200'
+                  }`}
+                >
+                  <div className={`w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-8 ${
+                    isFocusMode ? 'bg-white/10 text-white' : 'bg-white text-primary shadow-sm border border-slate-100'
+                  }`}>
+                    <FileQuestion size={40} />
+                  </div>
+                  
+                  <h3 className={`text-2xl font-black mb-4 tracking-tight ${isFocusMode ? 'text-white' : 'text-slate-900'}`}>
+                    Transcript is not available for imported videos yet.
+                  </h3>
+                  
+                  <p className={`font-medium leading-relaxed mb-10 ${isFocusMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                    Use curated videos for full shadowing practice with synced transcript.
+                  </p>
+                  
+                  <div className={`p-6 rounded-2xl text-left border mb-10 ${
+                    isFocusMode ? 'bg-white/5 border-white/10' : 'bg-white border-slate-100'
+                  }`}>
+                    <div className="flex items-start gap-4">
+                      <div className="mt-1 text-primary">
+                        <Info size={20} />
+                      </div>
+                      <div className="space-y-3">
+                        <p className={`text-sm font-black uppercase tracking-wider ${isFocusMode ? 'text-white' : 'text-slate-900'}`}>
+                          Notice
+                        </p>
+                        <ul className={`text-xs space-y-2 font-medium leading-relaxed ${isFocusMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                          <li className="flex items-start gap-2">
+                            <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
+                            <span>Video playback works normally</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
+                            <span>Interactive transcript is not yet supported for imported content</span>
+                          </li>
+                          <li className="flex items-start gap-2">
+                            <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
+                            <span>Curated content has full transcript support</span>
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+
+                  <Button 
+                    className="w-full py-6 rounded-2xl text-lg font-bold shadow-xl shadow-primary/20"
+                    onClick={onBack}
+                  >
+                    Explore curated videos
+                  </Button>
+                </motion.div>
+              </div>
             ) : (
               <div 
                 ref={transcriptContainerRef}
