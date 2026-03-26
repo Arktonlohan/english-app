@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import YouTube, { YouTubeProps, YouTubePlayer } from 'react-youtube';
-import { Speech, Sentence, Word, Transcript, TranscriptResult, TranscriptSegment, TranscriptStatus } from '../types';
+import { Speech, Word, TranscriptResult, TranscriptSegment, TranscriptStatus } from '../types';
 import { Button, Card, Badge } from './UI';
 import { speechService } from '../services/speechService';
 import { vocabularyService } from '../services/vocabularyService';
@@ -110,10 +110,18 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
   }, [transcriptResult]);
 
   const activeSegmentIndex = useMemo(() => {
-    return segments.findIndex(
+    const idx = segments.findIndex(
       s => currentTime >= s.start && currentTime <= s.end
     );
-  }, [segments, currentTime]);
+    
+    // Debug-safe fallback: if transcript is available and segments exist, 
+    // always show at least the first segment to guarantee visibility
+    if (idx === -1 && transcriptResult?.status === 'available' && segments.length > 0) {
+      return 0;
+    }
+    
+    return idx;
+  }, [segments, currentTime, transcriptResult]);
 
   // Load initial progress
   useEffect(() => {
@@ -341,9 +349,9 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
     setIsLoopingSentence(!isLoopingSentence);
   };
 
-  const handleSentenceClick = (sentence: Sentence) => {
+  const handleSentenceClick = (segment: TranscriptSegment) => {
     if (playerRef.current) {
-      playerRef.current.seekTo(sentence.startTime, true);
+      playerRef.current.seekTo(segment.start, true);
       playerRef.current.playVideo();
     }
   };
@@ -545,9 +553,9 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
           
           {/* Focus Mode Subtitles Overlay */}
           <AnimatePresence mode="wait">
-            {activeSegmentIndex !== -1 && (
+            {(activeSegmentIndex !== -1 || (transcriptResult?.status === 'available' && segments.length > 0)) && (
               <motion.div 
-                key={segments[activeSegmentIndex].id}
+                key={activeSegmentIndex !== -1 ? segments[activeSegmentIndex].id : 'fallback-0'}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
@@ -558,13 +566,13 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
                   <p className={`font-black text-white leading-tight tracking-tight ${
                     subtitleSize === 'sm' ? 'text-xl' : subtitleSize === 'lg' ? 'text-4xl md:text-5xl' : 'text-3xl md:text-4xl'
                   }`}>
-                    {segments[activeSegmentIndex].text}
+                    {activeSegmentIndex !== -1 ? segments[activeSegmentIndex].text : segments[0].text}
                   </p>
-                  {showTranslation && segments[activeSegmentIndex].translation && (
+                  {showTranslation && (activeSegmentIndex !== -1 ? segments[activeSegmentIndex].translation : segments[0].translation) && (
                     <p className={`mt-4 text-white/60 font-medium italic ${
                       subtitleSize === 'sm' ? 'text-sm' : subtitleSize === 'lg' ? 'text-2xl' : 'text-xl'
                     }`}>
-                      {segments[activeSegmentIndex].translation}
+                      {activeSegmentIndex !== -1 ? segments[activeSegmentIndex].translation : segments[0].translation}
                     </p>
                   )}
                 </div>

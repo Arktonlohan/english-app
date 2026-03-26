@@ -54,7 +54,6 @@ class SpeechService {
         publishedAt: new Date().toISOString()
       },
       transcript: {
-        status: 'loading',
         segments: []
       }
     };
@@ -71,8 +70,11 @@ class SpeechService {
 
     // 1. Check curated speeches
     const curatedSpeech = MOCK_SPEECHES.find(s => s.id === speechId);
-    if (curatedSpeech && curatedSpeech.transcript) {
-      return curatedSpeech.transcript;
+    if (curatedSpeech && curatedSpeech.transcript && curatedSpeech.transcript.segments.length > 0) {
+      return {
+        status: 'available',
+        segments: curatedSpeech.transcript.segments
+      };
     }
 
     // 2. For YouTube videos or curated without transcript, return unavailable

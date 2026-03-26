@@ -62,23 +62,22 @@ export interface PronunciationPracticeItem {
 export type Difficulty = 'Beginner' | 'Intermediate' | 'Advanced';
 export type Category = 'TED Talks' | 'Interviews' | 'Podcasts';
 
-export type TranscriptStatus = 'loading' | 'available' | 'unavailable' | 'error';
-export type TranscriptState = TranscriptStatus;
+export type TranscriptStatus = "available" | "unavailable" | "loading" | "error";
 export type ContentReadiness = 'ready' | 'processing' | 'no_transcript' | 'error';
 export type SpeechSourceType = 'curated' | 'youtube' | 'local';
 
-export interface TranscriptSegment {
-  id: string;
+export type TranscriptSegment = {
   text: string;
   start: number;
   end: number;
+  id?: string;
   translation?: string;
-}
+};
 
-export interface TranscriptResult {
+export type TranscriptResult = {
   status: TranscriptStatus;
   segments: TranscriptSegment[];
-}
+};
 
 export interface Word {
   text: string;
@@ -91,24 +90,6 @@ export interface Word {
   audioUrl?: string;
 }
 
-export interface Sentence {
-  id: string;
-  startTime: number;
-  endTime: number;
-  text: string;
-  words: Word[];
-  translation?: string;
-  isHard?: boolean;
-  isBookmarked?: boolean;
-}
-
-export interface Transcript {
-  speechId: string;
-  sentences: Sentence[];
-  state: TranscriptState;
-  source?: 'youtube_captions' | 'ai_generated' | 'curated' | 'fallback';
-}
-
 export interface Speech {
   id: string;
   title: string;
@@ -118,7 +99,9 @@ export interface Speech {
   duration: string;
   thumbnail: string;
   description: string;
-  transcript?: TranscriptResult;
+  transcript?: {
+    segments: TranscriptSegment[];
+  };
   youtubeUrl?: string;
   videoId?: string;
   isImported?: boolean;
