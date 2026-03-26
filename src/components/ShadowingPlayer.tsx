@@ -556,9 +556,9 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
       </header>
 
       {/* Main Content */}
-      <main className={`flex-1 overflow-y-auto pb-40 transition-all duration-500 ${isFocusMode ? 'bg-slate-950' : 'bg-white'}`}>
-        {/* Video Section */}
-        <div className={`relative transition-all duration-700 ease-in-out ${isFocusMode ? 'aspect-video max-w-5xl mx-auto mt-10 rounded-[3rem] shadow-[0_0_100px_rgba(var(--primary-rgb),0.2)]' : 'aspect-video w-full sticky top-0 z-20'} bg-black overflow-hidden`}>
+      <main className={`flex-1 flex flex-col overflow-hidden transition-all duration-500 ${isFocusMode ? 'bg-slate-950' : 'bg-white'}`}>
+        {/* Video Section (Fixed) */}
+        <div className={`flex-none relative transition-all duration-700 ease-in-out ${isFocusMode ? 'aspect-video max-w-5xl mx-auto mt-4 rounded-3xl shadow-[0_0_100px_rgba(var(--primary-rgb),0.2)]' : 'aspect-video w-full'} bg-black overflow-hidden z-20`}>
           {videoId ? (
             <div className="w-full h-full pointer-events-none">
               <YouTube 
@@ -575,83 +575,6 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
             </div>
           )}
           
-          {/* Focus Mode Subtitles Overlay */}
-          <div className="absolute inset-x-0 bottom-12 px-6 md:px-12 text-center pointer-events-none flex flex-col items-center gap-6">
-            <AnimatePresence mode="popLayout">
-              {activeSegmentIndex !== -1 && (
-                <motion.div 
-                  key={segments[activeSegmentIndex].id}
-                  initial={{ opacity: 0, y: 20, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -20, scale: 0.95 }}
-                  transition={{ 
-                    type: "spring",
-                    stiffness: 300,
-                    damping: 30,
-                    opacity: { duration: 0.2 }
-                  }}
-                  className="flex flex-col items-center gap-6 w-full max-w-5xl"
-                >
-                  {/* Previous Segment (Subtle) */}
-                  {activeSegmentIndex > 0 && (
-                    <motion.div 
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 0.15 }}
-                      className="scale-90 transition-all duration-700 hidden md:block"
-                    >
-                      <p className={`font-bold text-white/40 line-clamp-1 ${subtitleSize === 'sm' ? 'text-lg' : subtitleSize === 'lg' ? 'text-2xl' : 'text-xl'}`}>
-                        {segments[activeSegmentIndex - 1].text}
-                      </p>
-                    </motion.div>
-                  )}
-
-                  <div className="bg-black/60 backdrop-blur-3xl p-6 md:p-10 rounded-[3rem] border border-white/10 inline-block shadow-2xl pointer-events-auto ring-1 ring-white/5">
-                    <div className="flex flex-wrap justify-center gap-x-3 gap-y-2">
-                      {segments[activeSegmentIndex].text.split(/\s+/).map((word, idx) => (
-                        <motion.span 
-                          key={idx}
-                          whileHover={{ scale: 1.1, color: '#FF6321' }}
-                          whileTap={{ scale: 0.95 }}
-                          onClick={(e) => handleWordClickFromText(word, e)}
-                          className={`cursor-pointer transition-colors inline-block font-black text-white leading-tight tracking-tight drop-shadow-sm ${
-                            subtitleSize === 'sm' ? 'text-xl' : subtitleSize === 'lg' ? 'text-4xl md:text-6xl' : 'text-3xl md:text-5xl'
-                          }`}
-                        >
-                          {word}
-                        </motion.span>
-                      ))}
-                    </div>
-                    
-                    {showTranslation && segments[activeSegmentIndex].translation && (
-                      <motion.p 
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className={`mt-6 text-white/50 font-medium italic tracking-wide ${
-                          subtitleSize === 'sm' ? 'text-sm' : subtitleSize === 'lg' ? 'text-2xl' : 'text-xl'
-                        }`}
-                      >
-                        {segments[activeSegmentIndex].translation}
-                      </motion.p>
-                    )}
-                  </div>
-
-                  {/* Next Segment (Subtle) */}
-                  {activeSegmentIndex < segments.length - 1 && (
-                    <motion.div 
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 0.15 }}
-                      className="scale-90 transition-all duration-700 hidden md:block"
-                    >
-                      <p className={`font-bold text-white/40 line-clamp-1 ${subtitleSize === 'sm' ? 'text-lg' : subtitleSize === 'lg' ? 'text-2xl' : 'text-xl'}`}>
-                        {segments[activeSegmentIndex + 1].text}
-                      </p>
-                    </motion.div>
-                  )}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-          
           {/* Custom Play Overlay */}
           {!isPlaying && videoId && (
             <div className="absolute inset-0 bg-black/40 flex items-center justify-center cursor-pointer z-10" onClick={togglePlay}>
@@ -661,7 +584,7 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
             </div>
           )}
 
-          <div className="absolute inset-x-0 bottom-0 h-1.5 bg-slate-800/50">
+          <div className="absolute inset-x-0 bottom-0 h-1 bg-slate-800/50">
             <motion.div 
               className="h-full bg-gradient-to-r from-primary to-accent shadow-[0_0_10px_rgba(var(--primary-rgb),0.5)]"
               style={{ width: `${videoProgress || 0}%` }}
@@ -669,308 +592,161 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
           </div>
         </div>
 
-        {/* Overall Progress Bar */}
-        {!isFocusMode && (
-          <div className="px-6 py-6 bg-slate-50 border-b border-slate-100">
-            <div className="max-w-3xl mx-auto space-y-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center text-primary shadow-sm border border-slate-100">
-                    <Trophy size={24} />
+        {/* Scrollable Transcript Panel */}
+        <div className="flex-1 overflow-y-auto scroll-smooth custom-scrollbar">
+          {/* Overall Progress Bar (Hidden in Focus Mode) */}
+          {!isFocusMode && (
+            <div className="px-6 py-6 bg-slate-50/50 border-b border-slate-100">
+              <div className="max-w-3xl mx-auto space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-primary shadow-sm border border-slate-100">
+                      <Trophy size={20} />
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em]">Overall Mastery</p>
+                      <p className="text-base font-black text-slate-900">{overallProgress}%</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Overall Mastery</p>
-                    <p className="text-lg font-black text-slate-900">{overallProgress}% Completed</p>
-                  </div>
-                </div>
-                <div className="flex gap-6">
-                  <div className="text-right">
-                    <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Sentences</p>
-                    <p className="text-sm font-bold text-slate-600">{completedSentenceIds.length} / {segments.length}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Difficult</p>
-                    <p className="text-sm font-bold text-rose-500">{difficultSentenceIds.length}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Saved</p>
-                    <p className="text-sm font-bold text-primary">{savedWordsCount}</p>
-                  </div>
-                </div>
-              </div>
-              <div className="w-full h-3 bg-slate-200 rounded-full overflow-hidden shadow-inner">
-                <motion.div 
-                  initial={{ width: 0 }}
-                  animate={{ width: `${overallProgress}%` }}
-                  className="h-full gradient-primary shadow-[0_0_15px_rgba(var(--primary-rgb),0.3)]"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Transcript Section */}
-        <div className={`px-6 py-10 max-w-3xl mx-auto space-y-12 transition-all duration-500 ${isFocusMode ? 'opacity-0 pointer-events-none scale-95' : 'opacity-100'}`}>
-          {isTranscriptLoading ? (
-            <div className="flex flex-col items-center justify-center py-32 space-y-8">
-              <div className="relative">
-                <div className="w-24 h-24 rounded-full border-4 border-primary/10 border-t-primary animate-spin" />
-                <motion.div 
-                  animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.6, 0.3] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                  className="absolute inset-0 bg-primary/20 blur-2xl rounded-full"
-                />
-              </div>
-              <div className="text-center space-y-3">
-                <h3 className="text-2xl font-black text-slate-900 tracking-tight">Analyzing Speech</h3>
-                <p className="text-slate-500 font-medium animate-pulse">Syncing transcript with video timeline...</p>
-              </div>
-            </div>
-          ) : isGeneratingTranscript ? (
-            <div className="flex flex-col items-center justify-center py-32 space-y-8">
-              <div className="relative">
-                <div className="w-24 h-24 rounded-full border-4 border-accent/10 border-t-accent animate-spin" />
-                <motion.div 
-                  animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.6, 0.3] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                  className="absolute inset-0 bg-accent/20 blur-2xl rounded-full"
-                />
-              </div>
-              <div className="text-center space-y-3">
-                <h3 className="text-2xl font-black text-slate-900 tracking-tight">AI Transcription in Progress</h3>
-                <p className="text-slate-500 font-medium animate-pulse">Our AI is listening and transcribing the content...</p>
-              </div>
-            </div>
-          ) : (transcriptResult?.status === 'unavailable' || transcriptResult?.status === 'error') ? (
-            <Card className="p-12 border-none bg-slate-50 rounded-[3.5rem] text-center space-y-8 relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -mr-32 -mt-32" />
-              
-              <div className="w-24 h-24 rounded-[2.5rem] bg-white flex items-center justify-center text-slate-300 mx-auto shadow-xl border border-slate-100 relative z-10">
-                <FileQuestion size={48} />
-              </div>
-              
-              <div className="space-y-3 relative z-10">
-                <h3 className="text-3xl font-black text-slate-900 tracking-tight">Transcript Unavailable</h3>
-                <p className="text-slate-500 font-medium max-w-sm mx-auto leading-relaxed">
-                  Transcript is not available for this video yet.
-                </p>
-                {speech.isImported && (
-                  <p className="text-slate-400 text-sm font-medium max-w-sm mx-auto leading-relaxed">
-                    Imported videos currently support playback, but transcript generation is not available yet.
-                  </p>
-                )}
-              </div>
-              
-              <div className="pt-6 flex flex-col gap-4 max-w-sm mx-auto relative z-10">
-                <Button 
-                  className="rounded-[1.5rem] py-6 font-black text-lg flex items-center justify-center gap-3 shadow-xl shadow-primary/20"
-                  onClick={handleGenerateAITranscript}
-                >
-                  <Sparkles size={20} />
-                  Generate AI Transcript
-                </Button>
-              </div>
-            </Card>
-          ) : segments.length === 0 ? (
-            <div className="text-center py-20 space-y-4">
-              <div className="w-16 h-16 rounded-full bg-slate-50 flex items-center justify-center text-slate-300 mx-auto">
-                <AlertCircle size={32} />
-              </div>
-              <p className="text-slate-400 font-bold">No transcript segments available for this video.</p>
-            </div>
-          ) : (
-            <div 
-              ref={transcriptContainerRef}
-              className="space-y-12"
-            >
-              {/* Transcript Source Info */}
-              {transcriptResult && transcriptResult.status === 'available' && (
-                <div className="flex flex-col items-center justify-center gap-4 pb-12">
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2 px-4 py-1.5 rounded-full border shadow-sm bg-emerald-50 border-emerald-100 text-emerald-600">
-                      <div className="w-2 h-2 rounded-full animate-pulse bg-emerald-500" />
-                      <span className="text-[10px] font-black uppercase tracking-widest">
-                        Verified Transcript
-                      </span>
+                  <div className="flex gap-4">
+                    <div className="text-right">
+                      <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Sentences</p>
+                      <p className="text-xs font-bold text-slate-600">{completedSentenceIds.length}/{segments.length}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[9px] font-black text-slate-300 uppercase tracking-widest">Saved</p>
+                      <p className="text-xs font-bold text-primary">{savedWordsCount}</p>
                     </div>
                   </div>
                 </div>
-              )}
+                <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: `${overallProgress}%` }}
+                    className="h-full gradient-primary"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
-              {segments.map((segment, sIdx) => {
-                const isDifficult = difficultSentenceIds.includes(segment.id);
-                const isCompleted = completedSentenceIds.includes(segment.id);
-                const isBookmarked = bookmarkedSentenceIds.includes(segment.id);
-                const isActive = sIdx === activeSegmentIndex;
-                
-                return (
-                  <motion.div
-                    key={segment.id}
-                    onClick={() => {
-                      if (playerRef.current) {
-                        playerRef.current.seekTo(segment.start, true);
-                        playerRef.current.playVideo();
-                      }
-                    }}
-                    className={`
-                      relative p-12 rounded-[3.5rem] transition-all duration-500 cursor-pointer group border-2
-                      ${isActive 
-                        ? 'bg-primary/5 shadow-2xl shadow-primary/10 border-primary/30 scale-[1.02]' 
-                        : 'bg-white hover:bg-slate-50 border-transparent'}
-                      ${isDifficult && !isActive ? 'border-rose-100 bg-rose-50/10' : ''}
-                      ${isCompleted && !isActive ? 'opacity-40' : ''}
-                      ${isBookmarked && !isActive ? 'border-amber-100 bg-amber-50/10' : ''}
-                    `}
-                    animate={{
-                      opacity: isActive ? 1 : (isCompleted ? 0.6 : 0.9)
-                    }}
-                  >
-                    {/* Sentence Status Badges */}
-                    <div className="absolute -top-3 left-10 flex gap-2">
-                      {isDifficult && (
-                        <Badge variant="warning" className="rounded-full px-3 py-1 text-[9px] font-black shadow-md uppercase tracking-tighter">Difficult</Badge>
-                      )}
-                      {isCompleted && (
-                        <Badge variant="success" className="rounded-full px-3 py-1 text-[9px] font-black shadow-md uppercase tracking-tighter">Mastered</Badge>
-                      )}
-                      {isBookmarked && (
-                        <Badge variant="accent" className="rounded-full px-3 py-1 text-[9px] font-black shadow-md uppercase tracking-tighter bg-amber-500 border-amber-600">Bookmarked</Badge>
-                      )}
-                    </div>
-
-                    {/* Sentence Controls */}
-                    <div className="absolute -right-6 top-1/2 -translate-y-1/2 flex flex-col gap-3 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-x-4 group-hover:translate-x-0 z-10">
-                       <button 
-                        onClick={(e) => { 
-                          e.stopPropagation(); 
-                          if (playerRef.current) {
-                            playerRef.current.seekTo(segment.start, true);
-                            playerRef.current.playVideo();
-                          }
-                        }}
-                        className="w-12 h-12 rounded-2xl bg-white shadow-xl flex items-center justify-center text-slate-400 hover:text-primary transition-all hover:scale-110 active:scale-95 border border-slate-50"
-                        title="Replay Sentence"
-                       >
-                          <RotateCcw size={18} />
-                       </button>
-                       <button 
-                        onClick={(e) => { 
-                          e.stopPropagation(); 
-                          toggleBookmark(segment.id);
-                        }}
-                        className={`w-12 h-12 rounded-2xl bg-white shadow-xl flex items-center justify-center transition-all hover:scale-110 active:scale-95 border border-slate-50 ${isBookmarked ? 'text-amber-500' : 'text-slate-400 hover:text-amber-500'}`}
-                        title="Bookmark Sentence"
-                       >
-                          <Bookmark size={18} fill={isBookmarked ? "currentColor" : "none"} />
-                       </button>
-                       <button 
-                        onClick={(e) => { e.stopPropagation(); toggleDifficult(segment.id); }}
-                        className={`w-12 h-12 rounded-2xl bg-white shadow-xl flex items-center justify-center transition-all hover:scale-110 active:scale-95 border border-slate-50 ${isDifficult ? 'text-rose-500' : 'text-slate-400 hover:text-rose-500'}`}
-                        title="Mark as Difficult"
-                       >
-                          <AlertCircle size={18} />
-                       </button>
-                    </div>
-
-                  <div className="flex flex-wrap gap-x-3 gap-y-5 justify-center">
-                    {segment.text.split(/\s+/).map((word, idx) => (
-                      <span 
-                        key={idx}
-                        onClick={(e) => handleWordClickFromText(word, e)}
-                        className={`cursor-pointer hover:text-primary transition-all inline-block font-black text-center ${isActive ? 'text-primary' : 'text-slate-800'} ${subtitleSize === 'sm' ? 'text-xl' : subtitleSize === 'lg' ? 'text-4xl md:text-5xl' : 'text-3xl md:text-4xl'}`}
-                      >
-                        {word}
-                      </span>
-                    ))}
-                  </div>
-
-                  {/* Sentence Translation */}
-                  <AnimatePresence>
-                    {showTranslation && segment.translation && (
-                      <motion.div 
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="mt-8 pt-8 border-t border-primary/10 text-center space-y-2"
-                      >
-                        <div className="flex items-center justify-center gap-2">
-                          <Languages size={12} className="text-primary/40" />
-                          <span className="text-[9px] font-black text-slate-300 uppercase tracking-[0.2em]">
-                            {user?.preferences?.nativeLanguage || 'Native'} Translation
-                          </span>
-                        </div>
-                        <p className="text-slate-500 font-medium text-xl leading-relaxed italic">
-                          {segment.translation}
-                        </p>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-
-                  {/* Progress Indicator per sentence */}
-                  {isActive && (
-                    <div className="absolute bottom-6 right-8 flex items-center gap-3">
-                      <div className="flex gap-1.5">
+          {/* Transcript Content */}
+          <div className={`px-6 py-10 max-w-3xl mx-auto space-y-8 transition-all duration-500`}>
+            {isTranscriptLoading ? (
+              <div className="flex flex-col items-center justify-center py-32 space-y-8">
+                <div className="relative">
+                  <div className="w-24 h-24 rounded-full border-4 border-primary/10 border-t-primary animate-spin" />
+                  <motion.div 
+                    animate={{ scale: [1, 1.2, 1], opacity: [0.3, 0.6, 0.3] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                    className="absolute inset-0 bg-primary/20 blur-2xl rounded-full"
+                  />
+                </div>
+                <div className="text-center space-y-3">
+                  <h3 className="text-2xl font-black text-slate-900 tracking-tight">Analyzing Speech</h3>
+                  <p className="text-slate-500 font-medium animate-pulse">Syncing transcript with video timeline...</p>
+                </div>
+              </div>
+            ) : (
+              <div 
+                ref={transcriptContainerRef}
+                className="space-y-6 pb-40"
+              >
+                {segments.map((segment, sIdx) => {
+                  const isDifficult = difficultSentenceIds.includes(segment.id);
+                  const isCompleted = completedSentenceIds.includes(segment.id);
+                  const isBookmarked = bookmarkedSentenceIds.includes(segment.id);
+                  const isActive = sIdx === activeSegmentIndex;
+                  
+                  return (
+                    <motion.div
+                      key={segment.id}
+                      onClick={() => {
+                        if (playerRef.current) {
+                          playerRef.current.seekTo(segment.start, true);
+                          playerRef.current.playVideo();
+                        }
+                      }}
+                      className={`
+                        relative p-8 rounded-[2.5rem] transition-all duration-500 cursor-pointer group border-2
+                        ${isActive 
+                          ? `bg-primary/5 border-primary/40 scale-[1.02] shadow-[0_0_40px_rgba(var(--primary-rgb),0.2)] ring-2 ring-primary/20` 
+                          : isFocusMode ? 'bg-white/5 border-transparent hover:bg-white/10' : 'bg-white hover:bg-slate-50 border-transparent'}
+                        ${isDifficult && !isActive ? 'border-rose-100/50 bg-rose-50/5' : ''}
+                        ${isCompleted && !isActive ? 'opacity-40 grayscale-[0.5]' : ''}
+                      `}
+                      animate={{
+                        opacity: isActive ? 1 : (isCompleted ? 0.4 : (isFocusMode ? 0.6 : 0.9)),
+                        scale: isActive ? 1.02 : 1
+                      }}
+                    >
+                      {/* Active Glow Effect */}
+                      {isActive && (
                         <motion.div 
-                          animate={{ opacity: [0.3, 1, 0.3] }}
-                          transition={{ duration: 1.5, repeat: Infinity }}
-                          className="w-2 h-2 rounded-full bg-primary" 
+                          layoutId="activeGlow"
+                          className="absolute inset-0 rounded-[2.5rem] bg-primary/10 blur-xl -z-10"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
                         />
-                        <div className="w-2 h-2 rounded-full bg-slate-200" />
-                        <div className="w-2 h-2 rounded-full bg-slate-200" />
+                      )}
+
+                      <div className="flex flex-wrap gap-x-2 gap-y-3 justify-center">
+                        {segment.text.split(/\s+/).map((word, idx) => (
+                          <span 
+                            key={idx}
+                            onClick={(e) => handleWordClickFromText(word, e)}
+                            className={`
+                              cursor-pointer transition-all inline-block font-black text-center
+                              ${isActive ? 'text-primary drop-shadow-[0_0_8px_rgba(var(--primary-rgb),0.5)]' : isFocusMode ? 'text-white/80' : 'text-slate-800'} 
+                              ${subtitleSize === 'sm' ? 'text-lg' : subtitleSize === 'lg' ? 'text-3xl md:text-4xl' : 'text-2xl md:text-3xl'}
+                              hover:scale-110 hover:text-primary
+                            `}
+                          >
+                            {word}
+                          </span>
+                        ))}
                       </div>
-                      <span className="text-[10px] font-black text-primary uppercase tracking-[0.2em]">Active</span>
-                    </div>
-                  )}
-                </motion.div>
-              );
-            })}
+
+                      {/* Sentence Translation */}
+                      <AnimatePresence>
+                        {showTranslation && segment.translation && (
+                          <motion.div 
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className="mt-4 pt-4 border-t border-primary/10 text-center"
+                          >
+                            <p className={`text-slate-500 font-medium leading-relaxed italic ${subtitleSize === 'sm' ? 'text-sm' : subtitleSize === 'lg' ? 'text-xl' : 'text-lg'}`}>
+                              {segment.translation}
+                            </p>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-        )}
-      </div>
-    </main>
-
-      {/* Floating Controls */}
-      <div className="fixed bottom-8 inset-x-0 flex flex-col items-center gap-4 px-6 pointer-events-none">
-        {/* Mode Indicators */}
-        <div className="flex gap-2 pointer-events-auto">
-           {isFocusMode && (
-             <Badge variant="glass" className="rounded-full px-3 py-1 flex items-center gap-1 shadow-lg border-white/10">
-               <Zap size={10} /> Focus Mode
-             </Badge>
-           )}
-           {autoPause && (
-             <Badge variant="accent" className="rounded-full px-3 py-1 flex items-center gap-1 shadow-lg">
-               <Pause size={10} /> Auto-Pause
-             </Badge>
-           )}
-           {isLoopingSentence && (
-             <Badge variant="primary" className="rounded-full px-3 py-1 flex items-center gap-1 shadow-lg">
-               <Repeat size={10} /> Looping Sentence
-             </Badge>
-           )}
-           {loopMode !== 'none' && !isLoopingSentence && (
-             <Badge variant="primary" className="rounded-full px-3 py-1 flex items-center gap-1 shadow-lg">
-               <Repeat size={10} /> Loop: {loopMode}
-             </Badge>
-           )}
         </div>
+      </main>
 
-        <div className={`glass rounded-[3rem] p-3 flex items-center gap-2 shadow-2xl pointer-events-auto border transition-all duration-500 ${isFocusMode ? 'bg-white/5 border-white/10' : 'bg-white/80 border-white/30'} backdrop-blur-2xl`}>
+      {/* Floating Controls (Simplified & Compact) */}
+      <div className="fixed bottom-6 inset-x-0 flex flex-col items-center gap-4 px-6 pointer-events-none z-50">
+        <div className={`glass rounded-full p-2 flex items-center gap-1 shadow-2xl pointer-events-auto border transition-all duration-500 ${isFocusMode ? 'bg-white/10 border-white/10' : 'bg-white/90 border-white/30'} backdrop-blur-3xl`}>
           <button 
             onClick={togglePlaybackRate}
-            className={`w-10 h-10 rounded-full flex flex-col items-center justify-center transition-all ${playbackRate < 1 ? 'bg-primary text-white shadow-lg shadow-primary/20' : isFocusMode ? 'text-white/60 hover:bg-white/10' : 'text-slate-600 hover:bg-white/50'}`}
+            className={`w-9 h-9 rounded-full flex flex-col items-center justify-center transition-all ${playbackRate < 1 ? 'bg-primary text-white' : isFocusMode ? 'text-white/60 hover:bg-white/10' : 'text-slate-600 hover:bg-slate-100'}`}
           >
-            <Zap size={14} className={playbackRate < 1 ? 'mb-0.5' : 'mb-0'} />
             <span className="text-[8px] font-black">{playbackRate}x</span>
           </button>
 
           <div className="relative">
             <button 
               onClick={() => setShowSizeControl(!showSizeControl)}
-              className={`w-10 h-10 rounded-full flex flex-col items-center justify-center transition-all ${showSizeControl ? 'bg-primary text-white shadow-lg shadow-primary/20' : isFocusMode ? 'text-white/60 hover:bg-white/10' : 'text-slate-600 hover:bg-white/50'}`}
+              className={`w-9 h-9 rounded-full flex flex-col items-center justify-center transition-all ${showSizeControl ? 'bg-primary text-white' : isFocusMode ? 'text-white/60 hover:bg-white/10' : 'text-slate-600 hover:bg-slate-100'}`}
             >
               <span className="text-[8px] font-black uppercase">{subtitleSize}</span>
-              <span className="text-[6px] font-bold opacity-50">SIZE</span>
             </button>
             
             <AnimatePresence>
@@ -979,17 +755,17 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
                   initial={{ opacity: 0, y: 10, scale: 0.9 }}
                   animate={{ opacity: 1, y: -10, scale: 1 }}
                   exit={{ opacity: 0, y: 10, scale: 0.9 }}
-                  className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 bg-white rounded-2xl shadow-2xl border border-slate-100 p-2 flex flex-col gap-1 min-w-[100px] z-[110]"
+                  className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 bg-white rounded-2xl shadow-2xl border border-slate-100 p-1 flex flex-col gap-0.5 min-w-[80px]"
                 >
                   {(['sm', 'md', 'lg'] as const).map((size) => (
                     <button
                       key={size}
                       onClick={() => toggleSubtitleSize(size)}
-                      className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors ${
+                      className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-colors ${
                         subtitleSize === size ? 'bg-primary text-white' : 'hover:bg-slate-50 text-slate-600'
                       }`}
                     >
-                      {size === 'sm' ? 'Small' : size === 'md' ? 'Medium' : 'Large'}
+                      {size}
                     </button>
                   ))}
                 </motion.div>
@@ -997,65 +773,36 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
             </AnimatePresence>
           </div>
           
-          <button 
-            onClick={toggleLoopMode}
-            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${loopMode !== 'none' ? 'bg-accent text-white shadow-lg shadow-accent/20' : isFocusMode ? 'text-white/60 hover:bg-white/10' : 'text-slate-600 hover:bg-white/50'}`}
-          >
-            <Repeat size={16} />
-          </button>
-
-          <div className={`w-px h-6 mx-1 ${isFocusMode ? 'bg-white/10' : 'bg-slate-200/50'}`} />
+          <div className={`w-px h-5 mx-1 ${isFocusMode ? 'bg-white/10' : 'bg-slate-200'}`} />
 
           <button 
             onClick={handleGoBack5s}
-            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${isFocusMode ? 'text-white/60 hover:bg-white/10' : 'text-slate-600 hover:bg-white/50'}`}
-            title="Go back 5 seconds"
+            className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${isFocusMode ? 'text-white/60 hover:bg-white/10' : 'text-slate-600 hover:bg-slate-100'}`}
           >
-            <SkipBack size={16} />
-          </button>
-
-          <button 
-            onClick={handleRepeatSentence}
-            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${isFocusMode ? 'text-white/60 hover:bg-white/10' : 'text-slate-600 hover:bg-white/50'}`}
-            title="Repeat current sentence"
-          >
-            <RotateCcw size={16} />
-          </button>
-
-          <button 
-            onClick={handleGoForward5s}
-            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${isFocusMode ? 'text-white/60 hover:bg-white/10' : 'text-slate-600 hover:bg-white/50'}`}
-            title="Go forward 5 seconds"
-          >
-            <SkipForward size={16} />
+            <SkipBack size={14} />
           </button>
 
           <button 
             onClick={togglePlay}
-            className="w-14 h-14 rounded-full bg-gradient-to-br from-primary to-accent text-white flex items-center justify-center shadow-2xl hover:scale-105 active:scale-95 transition-all relative group"
+            className="w-12 h-12 rounded-full bg-primary text-white flex items-center justify-center shadow-xl hover:scale-105 active:scale-95 transition-all"
           >
-            <div className="absolute inset-0 bg-primary rounded-full blur-xl opacity-20 group-hover:opacity-40 transition-opacity" />
-            {isPlaying ? <Pause size={24} fill="currentColor" /> : <Play size={24} fill="currentColor" className="ml-1" />}
+            {isPlaying ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" className="ml-0.5" />}
           </button>
 
           <button 
-            onClick={() => setAutoPause(!autoPause)}
-            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${autoPause ? 'bg-indigo-500 text-white shadow-lg shadow-indigo-200' : isFocusMode ? 'text-white/60 hover:bg-white/10' : 'text-slate-600 hover:bg-white/50'}`}
+            onClick={handleGoForward5s}
+            className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${isFocusMode ? 'text-white/60 hover:bg-white/10' : 'text-slate-600 hover:bg-slate-100'}`}
           >
-            <PlayCircle size={16} />
+            <SkipForward size={14} />
           </button>
 
-          <div className={`w-px h-6 mx-1 ${isFocusMode ? 'bg-white/10' : 'bg-slate-200/50'}`} />
+          <div className={`w-px h-5 mx-1 ${isFocusMode ? 'bg-white/10' : 'bg-slate-200'}`} />
 
           <button 
-            onClick={() => setIsRecording(!isRecording)}
-            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${isRecording ? 'bg-rose-500 text-white animate-pulse shadow-lg shadow-rose-200' : isFocusMode ? 'text-white/60 hover:bg-white/10' : 'text-slate-600 hover:bg-white/50'}`}
+            onClick={() => setShowTranslation(!showTranslation)}
+            className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${showTranslation ? 'bg-primary text-white' : isFocusMode ? 'text-white/60 hover:bg-white/10' : 'text-slate-600 hover:bg-slate-100'}`}
           >
-            <Mic size={16} />
-          </button>
-
-          <button className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${isFocusMode ? 'text-white/60 hover:bg-white/10' : 'text-slate-600 hover:bg-white/50'}`}>
-            <Volume2 size={16} />
+            <Languages size={14} />
           </button>
         </div>
       </div>
