@@ -27,8 +27,8 @@ export const ShadowingPage: React.FC<ShadowingPageProps> = ({ onSelectSpeech }) 
     const loadAllProgress = async () => {
       const progressMap: Record<string, number> = {};
       for (const speech of MOCK_SPEECHES) {
-        const totalSentences = speech.transcript?.sentences.length || 10;
-        progressMap[speech.id] = await progressService.getOverallProgress(speech.id, totalSentences);
+        const totalSegments = speech.transcript?.segments.length || 10;
+        progressMap[speech.id] = await progressService.getOverallProgress(speech.id, totalSegments);
       }
       setSpeechProgressMap(progressMap);
     };

@@ -62,7 +62,7 @@ export interface PronunciationPracticeItem {
 export type Difficulty = 'Beginner' | 'Intermediate' | 'Advanced';
 export type Category = 'TED Talks' | 'Interviews' | 'Podcasts';
 
-export type TranscriptStatus = 'loading' | 'available' | 'unavailable' | 'mock' | 'error';
+export type TranscriptStatus = 'loading' | 'available' | 'unavailable' | 'error';
 export type TranscriptState = TranscriptStatus;
 export type ContentReadiness = 'ready' | 'processing' | 'no_transcript' | 'error';
 export type SpeechSourceType = 'curated' | 'youtube' | 'local';
@@ -118,7 +118,7 @@ export interface Speech {
   duration: string;
   thumbnail: string;
   description: string;
-  transcript?: Transcript;
+  transcript?: TranscriptResult;
   youtubeUrl?: string;
   videoId?: string;
   isImported?: boolean;

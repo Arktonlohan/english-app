@@ -17,6 +17,15 @@ export const MOCK_SPEECHES: Speech[] = [
     sourceType: 'curated',
     metadata: {
       tags: ['Best for pronunciation', 'Deep practice']
+    },
+    transcript: {
+      status: 'available',
+      segments: [
+        { id: 's1', start: 0, end: 4.5, text: "I'd like to start by asking you a question.", translation: "Me gustaría empezar haciéndoles una pregunta." },
+        { id: 's2', start: 4.5, end: 8.0, text: "Have you ever felt like you're talking, but nobody is listening?", translation: "¿Alguna vez has sentido que estás hablando, pero nadie te escucha?" },
+        { id: 's3', start: 8.0, end: 12.5, text: "We all have that experience, and it's quite a common one.", translation: "Todos tenemos esa experiencia, y es bastante común." },
+        { id: 's4', start: 12.5, end: 16.0, text: "The human voice is the instrument we all play.", translation: "La voz humana es el instrumento que todos tocamos." }
+      ]
     }
   },
   {
@@ -71,6 +80,15 @@ export const MOCK_SPEECHES: Speech[] = [
     sourceType: 'curated',
     metadata: {
       tags: ['Humor', 'Best for shadowing beginners']
+    },
+    transcript: {
+      status: 'available',
+      segments: [
+        { id: 's1', start: 0, end: 3.5, text: "I want to show you what's inside the mind of a master procrastinator.", translation: "Quiero mostrarles lo que hay dentro de la mente de un maestro de la procrastinación." },
+        { id: 's2', start: 3.5, end: 7.0, text: "Now, I'm not a master procrastinator myself, but I know many of them.", translation: "Ahora, yo no soy un maestro de la procrastinación, pero conozco a muchos." },
+        { id: 's3', start: 7.0, end: 10.5, text: "It all starts with a simple task that needs to be done.", translation: "Todo comienza con una tarea sencilla que debe hacerse." },
+        { id: 's4', start: 10.5, end: 14.0, text: "But then, the Instant Gratification Monkey takes the wheel.", translation: "Pero entonces, el Mono de la Gratificación Instantánea toma el volante." }
+      ]
     }
   },
   {
@@ -125,6 +143,15 @@ export const MOCK_SPEECHES: Speech[] = [
     sourceType: 'curated',
     metadata: {
       tags: ['Inspirational', 'Best for pronunciation']
+    },
+    transcript: {
+      status: 'available',
+      segments: [
+        { id: 's1', start: 0, end: 4.0, text: "I am honored to be with you today at your commencement.", translation: "Es un honor para mí estar hoy con ustedes en su graduación." },
+        { id: 's2', start: 4.0, end: 8.0, text: "Truth be told, I never graduated from college.", translation: "A decir verdad, nunca me gradué de la universidad." },
+        { id: 's3', start: 8.0, end: 12.0, text: "This is the closest I've ever gotten to a college graduation.", translation: "Esto es lo más cerca que he estado de una graduación universitaria." },
+        { id: 's4', start: 12.0, end: 16.0, text: "Today I want to tell you three stories from my life.", translation: "Hoy quiero contarles tres historias de mi vida." }
+      ]
     }
   },
   {

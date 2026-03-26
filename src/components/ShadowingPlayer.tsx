@@ -661,7 +661,7 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
                 <p className="text-slate-500 font-medium animate-pulse">Our AI is listening and transcribing the content...</p>
               </div>
             </div>
-          ) : transcriptResult.status === 'unavailable' || transcriptResult.status === 'error' ? (
+          ) : (transcriptResult?.status === 'unavailable' || transcriptResult?.status === 'error') ? (
             <Card className="p-12 border-none bg-slate-50 rounded-[3.5rem] text-center space-y-8 relative overflow-hidden">
               <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -mr-32 -mt-32" />
               
@@ -672,8 +672,13 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
               <div className="space-y-3 relative z-10">
                 <h3 className="text-3xl font-black text-slate-900 tracking-tight">Transcript Unavailable</h3>
                 <p className="text-slate-500 font-medium max-w-sm mx-auto leading-relaxed">
-                  We couldn't retrieve a matching transcript for this video. You can still watch the video or use our AI to generate a transcript.
+                  Transcript is not available for this video yet.
                 </p>
+                {speech.isImported && (
+                  <p className="text-slate-400 text-sm font-medium max-w-sm mx-auto leading-relaxed">
+                    Imported videos currently support playback, but transcript generation is not available yet.
+                  </p>
+                )}
               </div>
               
               <div className="pt-6 flex flex-col gap-4 max-w-sm mx-auto relative z-10">
@@ -684,28 +689,6 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
                   <Sparkles size={20} />
                   Generate AI Transcript
                 </Button>
-                
-                <div className="flex items-center gap-4 py-2">
-                  <div className="flex-1 h-px bg-slate-200" />
-                  <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">OR</span>
-                  <div className="flex-1 h-px bg-slate-200" />
-                </div>
-
-                <Button 
-                  variant="outline"
-                  className="rounded-[1.5rem] py-4 font-black text-sm flex items-center justify-center gap-3 border-2"
-                  onClick={() => {
-                    // Force a mock transcript for study
-                    setTranscriptResult(speechService.generateMockTranscript(speech.id));
-                  }}
-                >
-                  <PlayCircle size={18} />
-                  Try Sample Study Mode
-                </Button>
-                
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
-                  Note: Sample mode uses a generic transcript for practice
-                </p>
               </div>
             </Card>
           ) : segments.length === 0 ? (
@@ -721,19 +704,13 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
               className="space-y-12"
             >
               {/* Transcript Source Info */}
-              {transcriptResult && transcriptResult.status !== 'unavailable' && (
+              {transcriptResult && transcriptResult.status === 'available' && (
                 <div className="flex flex-col items-center justify-center gap-4 pb-12">
                   <div className="flex items-center gap-4">
-                    <div className={`flex items-center gap-2 px-4 py-1.5 rounded-full border shadow-sm ${
-                      transcriptResult.status === 'mock' 
-                        ? 'bg-amber-50 border-amber-100 text-amber-600' 
-                        : 'bg-emerald-50 border-emerald-100 text-emerald-600'
-                    }`}>
-                      <div className={`w-2 h-2 rounded-full animate-pulse ${
-                        transcriptResult.status === 'mock' ? 'bg-amber-500' : 'bg-emerald-500'
-                      }`} />
+                    <div className="flex items-center gap-2 px-4 py-1.5 rounded-full border shadow-sm bg-emerald-50 border-emerald-100 text-emerald-600">
+                      <div className="w-2 h-2 rounded-full animate-pulse bg-emerald-500" />
                       <span className="text-[10px] font-black uppercase tracking-widest">
-                        {transcriptResult.status === 'mock' ? 'Sample Practice Mode' : 'Verified Transcript'}
+                        Verified Transcript
                       </span>
                     </div>
                   </div>

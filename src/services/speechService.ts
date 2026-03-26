@@ -1,4 +1,5 @@
-import { Speech, Transcript, TranscriptStatus, TranscriptResult, TranscriptSegment, ContentReadiness, SpeechSourceType } from '../types';
+import { Speech, TranscriptStatus, TranscriptResult, TranscriptSegment, ContentReadiness, SpeechSourceType } from '../types';
+import { MOCK_SPEECHES } from '../data/speeches';
 
 class SpeechService {
   /**
@@ -53,9 +54,8 @@ class SpeechService {
         publishedAt: new Date().toISOString()
       },
       transcript: {
-        speechId: `yt-${videoId}`,
-        state: 'loading',
-        sentences: []
+        status: 'loading',
+        segments: []
       }
     };
 
@@ -67,33 +67,15 @@ class SpeechService {
    */
   async getTranscript(speechId: string): Promise<TranscriptResult> {
     // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    await new Promise(resolve => setTimeout(resolve, 800));
 
-    // 1. If it's a curated speech, it should have a verified transcript
-    if (!speechId.startsWith('yt-')) {
-      return this.generateMockTranscript(speechId, 'curated');
+    // 1. Check curated speeches
+    const curatedSpeech = MOCK_SPEECHES.find(s => s.id === speechId);
+    if (curatedSpeech && curatedSpeech.transcript) {
+      return curatedSpeech.transcript;
     }
 
-    // 2. For YouTube videos, try to fetch captions
-    try {
-      const captions = await this.fetchYoutubeCaptions(speechId);
-      if (captions) {
-        return {
-          status: 'available',
-          segments: captions.sentences.map(s => ({
-            id: s.id,
-            text: s.text,
-            start: s.startTime,
-            end: s.endTime,
-            translation: s.translation
-          }))
-        };
-      }
-    } catch (e) {
-      console.warn('Failed to fetch YouTube captions:', e);
-    }
-
-    // 3. If no captions, we'll return unavailable to be honest
+    // 2. For YouTube videos or curated without transcript, return unavailable
     return {
       status: 'unavailable',
       segments: []
@@ -101,55 +83,17 @@ class SpeechService {
   }
 
   /**
-   * Mock for fetching YouTube captions
-   */
-  private async fetchYoutubeCaptions(speechId: string): Promise<Transcript | null> {
-    // In a real app, this would call a backend that uses youtube-transcript-api or similar
-    return null; 
-  }
-
-  /**
    * Mock for AI-generated transcription
+   * In this version, we return unavailable to be honest as requested
    */
   async generateAITranscript(speechId: string): Promise<TranscriptResult> {
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    // Simulate AI processing
-    return this.generateMockTranscript(speechId, 'ai_generated');
-  }
-
-  /**
-   * Generates a mock transcript for testing fallbacks and loading states
-   */
-  generateMockTranscript(speechId: string, source: string = 'fallback'): TranscriptResult {
-    const status: TranscriptStatus = source === 'fallback' ? 'mock' : 'available';
-    
+    await new Promise(resolve => setTimeout(resolve, 2000));
     return {
-      status,
-      segments: [
-        {
-          id: "s1",
-          start: 0,
-          end: 5.5,
-          text: "Welcome to this amazing lesson on how to speak like a native speaker.",
-          translation: "Bienvenido a esta increíble lección sobre cómo hablar como un hablante nativo."
-        },
-        {
-          id: "s2",
-          start: 6.0,
-          end: 11.0,
-          text: "The key is not just vocabulary, but rhythm and intonation.",
-          translation: "La clave no es solo el vocabulario, sino el ritmo y la entonación."
-        },
-        {
-          id: "s3",
-          start: 11.5,
-          end: 16.0,
-          text: "Practice every day to improve your fluency and confidence.",
-          translation: "Practica todos los días para mejorar tu fluidez y confianza."
-        }
-      ]
+      status: 'unavailable',
+      segments: []
     };
   }
+
 
   /**
    * Speaks the given text using browser speech synthesis with high-quality voice selection
