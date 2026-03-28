@@ -89,6 +89,13 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
   // Fetch transcript if needed
   useEffect(() => {
     const fetchTranscript = async () => {
+      // If speech already has a valid transcript (e.g. from upload), use it
+      if (speech.transcript && speech.transcript.segments && speech.transcript.segments.length > 0) {
+        setTranscriptResult(speech.transcript);
+        setIsTranscriptLoading(false);
+        return;
+      }
+
       setIsTranscriptLoading(true);
       setTranscriptError(null);
       try {
@@ -103,7 +110,7 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
     };
 
     fetchTranscript();
-  }, [speech.id]);
+  }, [speech.id, speech.transcript]);
 
   const segments = useMemo(() => {
     return transcriptResult?.segments || [];
@@ -491,7 +498,7 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
     setIsTranscriptLoading(true);
     setTranscriptError(null);
     try {
-      const result = await speechService.parseSubtitleFile(file);
+      const result = await speechService.parseSubtitleFile(file, videoId || undefined);
       setTranscriptResult(result);
     } catch (error) {
       console.error('Subtitle upload failed:', error);

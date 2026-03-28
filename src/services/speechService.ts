@@ -185,7 +185,7 @@ class SpeechService {
   /**
    * Parses an uploaded subtitle file (.srt or .vtt)
    */
-  async parseSubtitleFile(file: File): Promise<TranscriptResult> {
+  async parseSubtitleFile(file: File, videoId?: string): Promise<TranscriptResult> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = (e) => {
@@ -196,12 +196,17 @@ class SpeechService {
         }
         
         let segments: TranscriptSegment[] = [];
-        if (file.name.toLowerCase().endsWith('.srt')) {
-          segments = this.parseSrtTranscript(text);
-        } else if (file.name.toLowerCase().endsWith('.vtt')) {
-          segments = this.parseVttTranscript(text);
-        } else {
-          reject(new Error('Unsupported file type. Please upload .srt or .vtt'));
+        try {
+          if (file.name.toLowerCase().endsWith('.srt')) {
+            segments = this.parseSrtTranscript(text);
+          } else if (file.name.toLowerCase().endsWith('.vtt')) {
+            segments = this.parseVttTranscript(text);
+          } else {
+            reject(new Error('Unsupported file type. Please upload .srt or .vtt'));
+            return;
+          }
+        } catch (err) {
+          reject(new Error('Could not parse subtitle file. Please check the format.'));
           return;
         }
         
@@ -210,11 +215,20 @@ class SpeechService {
           return;
         }
         
-        resolve({
+        const result: TranscriptResult = {
           status: 'available',
           source: 'uploaded-subtitle',
-          segments
-        });
+          segments,
+          videoId,
+          timestamp: new Date().toISOString()
+        };
+
+        // Cache it if we have a videoId
+        if (videoId) {
+          transcriptCache.set(videoId, result, 'uploaded-subtitle');
+        }
+        
+        resolve(result);
       };
       reader.onerror = () => reject(new Error('Failed to read file'));
       reader.readAsText(file);
@@ -226,25 +240,41 @@ class SpeechService {
    */
   private parseSrtTranscript(text: string): TranscriptSegment[] {
     const segments: TranscriptSegment[] = [];
-    // Split by double newline to get blocks
-    const blocks = text.trim().split(/\r?\n\s*\r?\n/);
+    // Normalize line endings and split by double newline to get blocks
+    const blocks = text.replace(/\r\n/g, '\n').split(/\n\n+/);
     
     for (const block of blocks) {
-      const lines = block.split(/\r?\n/);
-      if (lines.length < 3) continue;
+      const lines = block.trim().split('\n');
+      if (lines.length < 2) continue;
       
-      // Line 1: Index (ignore)
-      // Line 2: Time range (00:00:01,600 --> 00:00:04,200)
-      const timeLine = lines[1];
+      // SRT format:
+      // 1
+      // 00:00:01,600 --> 00:00:04,200
+      // Text line 1
+      // Text line 2
+      
+      let timeLine = '';
+      let textStartIndex = -1;
+      
+      // Find the time line (it contains -->)
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].includes('-->')) {
+          timeLine = lines[i];
+          textStartIndex = i + 1;
+          break;
+        }
+      }
+      
+      if (!timeLine || textStartIndex === -1) continue;
+      
       const timeMatch = timeLine.match(/(\d{2}:\d{2}:\d{2}[,. ]\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2}[,. ]\d{3})/);
-      
       if (!timeMatch) continue;
       
       const start = this.timeToSeconds(timeMatch[1]);
       const end = this.timeToSeconds(timeMatch[2]);
       
-      // Line 3+: Text
-      const content = lines.slice(2).join(' ').replace(/<[^>]*>/g, '').trim();
+      // Join all subsequent lines as the text content
+      const content = lines.slice(textStartIndex).join(' ').replace(/<[^>]*>/g, '').trim();
       
       if (content) {
         segments.push({
@@ -264,24 +294,27 @@ class SpeechService {
    */
   private parseVttTranscript(text: string): TranscriptSegment[] {
     const segments: TranscriptSegment[] = [];
-    // Remove WEBVTT header
-    const cleanText = text.replace(/^WEBVTT\s*\r?\n/, '').trim();
-    const blocks = cleanText.split(/\r?\n\s*\r?\n/);
+    // Normalize line endings and remove WEBVTT header
+    const cleanText = text.replace(/\r\n/g, '\n').replace(/^WEBVTT[\s\S]*?\n\n/, '').trim();
+    const blocks = cleanText.split(/\n\n+/);
     
     for (const block of blocks) {
-      const lines = block.split(/\r?\n/);
+      const lines = block.trim().split('\n');
       if (lines.length < 1) continue;
       
-      let timeLine = lines[0];
-      let contentStartIndex = 1;
+      let timeLine = '';
+      let textStartIndex = -1;
       
-      // VTT might have an index line or just the time line
-      if (!timeLine.includes('-->')) {
-        timeLine = lines[1];
-        contentStartIndex = 2;
+      // Find the time line (it contains -->)
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].includes('-->')) {
+          timeLine = lines[i];
+          textStartIndex = i + 1;
+          break;
+        }
       }
       
-      if (!timeLine || !timeLine.includes('-->')) continue;
+      if (!timeLine || textStartIndex === -1) continue;
       
       const timeMatch = timeLine.match(/(\d{2}:\d{2}:\d{2}[,. ]\d{3})\s*-->\s*(\d{2}:\d{2}:\d{2}[,. ]\d{3})/);
       const shortTimeMatch = timeLine.match(/(\d{2}:\d{2}[,. ]\d{3})\s*-->\s*(\d{2}:\d{2}[,. ]\d{3})/);
@@ -297,7 +330,7 @@ class SpeechService {
         continue;
       }
       
-      const content = lines.slice(contentStartIndex).join(' ').replace(/<[^>]*>/g, '').trim();
+      const content = lines.slice(textStartIndex).join(' ').replace(/<[^>]*>/g, '').trim();
       
       if (content) {
         segments.push({

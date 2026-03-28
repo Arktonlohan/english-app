@@ -68,7 +68,7 @@ export const ShadowingPage: React.FC<ShadowingPageProps> = ({ onSelectSpeech }) 
     setIsUploading(true);
     setUploadError(null);
     try {
-      const result = await speechService.parseSubtitleFile(file);
+      const result = await speechService.parseSubtitleFile(file, lastImportedSpeech.videoId);
       // Update the speech object with the new transcript
       const updatedSpeech = {
         ...lastImportedSpeech,
