@@ -484,6 +484,23 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
     }
   };
 
+  const handleSubtitleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsTranscriptLoading(true);
+    setTranscriptError(null);
+    try {
+      const result = await speechService.parseSubtitleFile(file);
+      setTranscriptResult(result);
+    } catch (error) {
+      console.error('Subtitle upload failed:', error);
+      setTranscriptError(error instanceof Error ? error.message : 'Failed to parse subtitle file.');
+    } finally {
+      setIsTranscriptLoading(false);
+    }
+  };
+
   const videoProgress = playerRef.current ? (currentTime / playerRef.current.getDuration()) * 100 : 0;
 
   const youtubeOptions: YouTubeProps['opts'] = {
@@ -515,7 +532,9 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
             <h2 className={`font-bold line-clamp-1 ${isFocusMode ? 'text-white' : 'text-slate-900'}`}>{speech.title}</h2>
             <div className="flex items-center gap-2">
               <Badge variant={isFocusMode ? "glass" : "primary"} className="text-[10px] py-0 px-1.5">PREMIUM</Badge>
-              <span className={`text-[10px] font-bold uppercase tracking-wider ${isFocusMode ? 'text-slate-500' : 'text-slate-400'}`}>Shadowing Mode</span>
+              <span className={`text-[10px] font-bold uppercase tracking-wider ${isFocusMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                {transcriptResult?.source === 'uploaded-subtitle' ? 'Custom Subtitles' : 'Shadowing Mode'}
+              </span>
             </div>
           </div>
         </div>
@@ -663,14 +682,66 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
                   </div>
                   
                   <h3 className={`text-2xl font-black mb-4 tracking-tight ${isFocusMode ? 'text-white' : 'text-slate-900'}`}>
-                    Transcript is not available for imported videos yet.
+                    Transcript is not available yet.
                   </h3>
                   
                   <p className={`font-medium leading-relaxed mb-10 ${isFocusMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                    Use curated videos for full shadowing practice with synced transcript.
+                    We couldn't find captions for this video. You can try generating one with AI or upload your own.
                   </p>
                   
-                  <div className={`p-6 rounded-2xl text-left border mb-10 ${
+                  <div className="space-y-4 mb-10">
+                    <Button 
+                      className="w-full py-6 rounded-2xl text-lg font-bold shadow-xl shadow-primary/20 flex items-center justify-center gap-3"
+                      onClick={handleGenerateAITranscript}
+                      disabled={isGeneratingTranscript}
+                    >
+                      {isGeneratingTranscript ? (
+                        <>
+                          <Loader2 className="animate-spin" size={20} />
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles size={20} />
+                          Generate with AI
+                        </>
+                      )}
+                    </Button>
+
+                    <div className="flex gap-3">
+                      <Button 
+                        variant="outline"
+                        className="flex-1 py-4 rounded-xl text-sm font-bold flex items-center justify-center gap-2"
+                        onClick={() => document.getElementById('srt-upload')?.click()}
+                      >
+                        <Activity size={16} />
+                        Upload .SRT / .VTT
+                      </Button>
+                      <input 
+                        id="srt-upload"
+                        type="file"
+                        accept=".srt,.vtt"
+                        className="hidden"
+                        onChange={handleSubtitleUpload}
+                      />
+                      <Button 
+                        variant="ghost"
+                        className="flex-1 py-4 rounded-xl text-sm font-bold"
+                        onClick={onBack}
+                      >
+                        Go Back
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  {transcriptError && (
+                    <div className="mb-6 p-4 bg-rose-50 border border-rose-100 rounded-xl text-rose-600 text-xs font-bold flex items-center gap-2">
+                      <AlertCircle size={14} />
+                      {transcriptError}
+                    </div>
+                  )}
+                  
+                  <div className={`p-6 rounded-2xl text-left border ${
                     isFocusMode ? 'bg-white/5 border-white/10' : 'bg-white border-slate-100'
                   }`}>
                     <div className="flex items-start gap-4">
@@ -679,32 +750,14 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
                       </div>
                       <div className="space-y-3">
                         <p className={`text-sm font-black uppercase tracking-wider ${isFocusMode ? 'text-white' : 'text-slate-900'}`}>
-                          Notice
+                          Pro Tip
                         </p>
-                        <ul className={`text-xs space-y-2 font-medium leading-relaxed ${isFocusMode ? 'text-slate-400' : 'text-slate-500'}`}>
-                          <li className="flex items-start gap-2">
-                            <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
-                            <span>Video playback works normally</span>
-                          </li>
-                          <li className="flex items-start gap-2">
-                            <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
-                            <span>Interactive transcript is not yet supported for imported content</span>
-                          </li>
-                          <li className="flex items-start gap-2">
-                            <div className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
-                            <span>Curated content has full transcript support</span>
-                          </li>
-                        </ul>
+                        <p className={`text-xs font-medium leading-relaxed ${isFocusMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                          Curated videos always have high-quality, verified transcripts ready for practice.
+                        </p>
                       </div>
                     </div>
                   </div>
-
-                  <Button 
-                    className="w-full py-6 rounded-2xl text-lg font-bold shadow-xl shadow-primary/20"
-                    onClick={onBack}
-                  >
-                    Explore curated videos
-                  </Button>
                 </motion.div>
               </div>
             ) : (
@@ -730,7 +783,7 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
                       className={`
                         relative p-8 rounded-[2.5rem] transition-all duration-500 cursor-pointer group border-2
                         ${isActive 
-                          ? `bg-primary/5 border-primary/40 scale-[1.02] shadow-[0_0_40px_rgba(var(--primary-rgb),0.2)] ring-2 ring-primary/20` 
+                          ? `bg-primary/10 border-primary/40 scale-[1.02] shadow-[0_0_60px_rgba(var(--primary-rgb),0.3)] ring-4 ring-primary/10` 
                           : isFocusMode ? 'bg-white/5 border-transparent hover:bg-white/10' : 'bg-white hover:bg-slate-50 border-transparent'}
                         ${isDifficult && !isActive ? 'border-rose-100/50 bg-rose-50/5' : ''}
                         ${isCompleted && !isActive ? 'opacity-40 grayscale-[0.5]' : ''}
@@ -744,9 +797,17 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
                       {isActive && (
                         <motion.div 
                           layoutId="activeGlow"
-                          className="absolute inset-0 rounded-[2.5rem] bg-primary/10 blur-xl -z-10"
+                          className="absolute inset-0 rounded-[2.5rem] bg-primary/20 blur-2xl -z-10"
                           initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
+                          animate={{ 
+                            opacity: [0.1, 0.3, 0.1],
+                            scale: [1, 1.05, 1]
+                          }}
+                          transition={{
+                            duration: 3,
+                            repeat: Infinity,
+                            ease: "easeInOut"
+                          }}
                         />
                       )}
 

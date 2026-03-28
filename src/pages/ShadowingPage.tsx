@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Card, Button, Badge } from '../components/UI';
-import { Mic2, Play, Clock, Sparkles, ChevronRight, Youtube, ArrowRight, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Mic2, Play, Clock, Sparkles, ChevronRight, Youtube, ArrowRight, Loader2, CheckCircle2, AlertCircle, Activity } from 'lucide-react';
 import { Speech } from '../types';
 import { MOCK_SPEECHES } from '../data/speeches';
 import { progressService } from '../services/progressService';
@@ -17,6 +17,9 @@ export const ShadowingPage: React.FC<ShadowingPageProps> = ({ onSelectSpeech }) 
   const [importError, setImportError] = useState<string | null>(null);
   const [speechProgressMap, setSpeechProgressMap] = useState<Record<string, number>>({});
   const [previewVideoId, setPreviewVideoId] = useState<string | null>(null);
+  const [lastImportedSpeech, setLastImportedSpeech] = useState<Speech | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   useEffect(() => {
     const videoId = speechService.extractVideoId(youtubeUrl);
@@ -47,6 +50,7 @@ export const ShadowingPage: React.FC<ShadowingPageProps> = ({ onSelectSpeech }) 
     setIsImporting(true);
     try {
       const importedSpeech = await speechService.importFromYoutube(youtubeUrl);
+      setLastImportedSpeech(importedSpeech);
       // In a real app, we'd add this to a list of user-imported speeches
       onSelectSpeech(importedSpeech);
     } catch (error) {
@@ -54,6 +58,31 @@ export const ShadowingPage: React.FC<ShadowingPageProps> = ({ onSelectSpeech }) 
       setImportError('Failed to import video. Please try again.');
     } finally {
       setIsImporting(false);
+    }
+  };
+
+  const handleSubtitleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !lastImportedSpeech) return;
+
+    setIsUploading(true);
+    setUploadError(null);
+    try {
+      const result = await speechService.parseSubtitleFile(file);
+      // Update the speech object with the new transcript
+      const updatedSpeech = {
+        ...lastImportedSpeech,
+        transcript: result,
+        readiness: 'ready' as const
+      };
+      setLastImportedSpeech(updatedSpeech);
+      // Open the player with the updated speech
+      onSelectSpeech(updatedSpeech);
+    } catch (error) {
+      console.error('Subtitle upload failed:', error);
+      setUploadError(error instanceof Error ? error.message : 'Failed to parse subtitle file.');
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -138,6 +167,50 @@ export const ShadowingPage: React.FC<ShadowingPageProps> = ({ onSelectSpeech }) 
                 <span className="hidden sm:inline ml-2">Import</span>
               </Button>
             </div>
+
+            {lastImportedSpeech && (lastImportedSpeech.readiness === 'no_transcript' || !lastImportedSpeech.transcript) && (
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-6 p-6 bg-slate-50 rounded-3xl border border-slate-100 flex items-center justify-between"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-white shadow-sm overflow-hidden flex-shrink-0">
+                    <img src={lastImportedSpeech.thumbnail} alt="" className="w-full h-full object-cover" />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black text-slate-900 line-clamp-1">{lastImportedSpeech.title}</h4>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Transcript missing</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="h-10 rounded-xl px-4 text-[10px] font-black uppercase tracking-widest gap-2 bg-white"
+                    onClick={() => document.getElementById('page-srt-upload')?.click()}
+                    disabled={isUploading}
+                  >
+                    {isUploading ? <Loader2 className="animate-spin" size={14} /> : <Activity size={14} />}
+                    Upload Subtitles
+                  </Button>
+                  <input 
+                    id="page-srt-upload"
+                    type="file"
+                    accept=".srt,.vtt"
+                    className="hidden"
+                    onChange={handleSubtitleUpload}
+                  />
+                </div>
+              </motion.div>
+            )}
+            
+            {uploadError && (
+              <p className="mt-2 text-[10px] text-rose-500 font-bold px-2 flex items-center gap-1.5">
+                <AlertCircle size={12} />
+                {uploadError}
+              </p>
+            )}
             
             <AnimatePresence>
               {importError && (

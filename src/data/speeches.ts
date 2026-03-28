@@ -19,6 +19,8 @@ export const MOCK_SPEECHES: Speech[] = [
       tags: ['Best for pronunciation', 'Deep practice']
     },
     transcript: {
+      status: 'available',
+      source: 'curated',
       segments: [
         { id: 'ted-1-s1', start: 0, end: 4.5, text: "I'd like to start by asking you a question.", translation: "Me gustaría empezar haciéndoles una pregunta." },
         { id: 'ted-1-s2', start: 4.5, end: 8.0, text: "Have you ever felt like you're talking, but nobody is listening?", translation: "¿Alguna vez has sentido que estás hablando, pero nadie te escucha?" },
@@ -59,6 +61,8 @@ export const MOCK_SPEECHES: Speech[] = [
       tags: ['Emotional intelligence', 'Advanced vocabulary']
     },
     transcript: {
+      status: 'available',
+      source: 'curated',
       segments: [
         { id: 'ted-2-s1', start: 0, end: 4.0, text: "So, I'm going to start with this.", translation: "Así que voy a empezar con esto." },
         { id: 'ted-2-s2', start: 4.0, end: 8.0, text: "A couple of years ago, I felt like I was stuck in a rut.", translation: "Hace un par de años, sentí que estaba atrapado en la rutina." },
@@ -96,6 +100,8 @@ export const MOCK_SPEECHES: Speech[] = [
       tags: ['Leadership', 'Clear articulation']
     },
     transcript: {
+      status: 'available',
+      source: 'curated',
       segments: [
         { id: 'ted-3-s1', start: 0, end: 3.5, text: "How do you explain when things don't go as we're told?", translation: "¿Cómo explicas cuando las cosas no salen como nos dicen?" },
         { id: 'ted-3-s2', start: 3.5, end: 7.0, text: "Or better, how do you explain when others are able to achieve things?", translation: "O mejor, ¿cómo explicas cuando otros son capaces de lograr cosas?" },
@@ -134,6 +140,8 @@ export const MOCK_SPEECHES: Speech[] = [
       tags: ['Humor', 'Best for shadowing beginners']
     },
     transcript: {
+      status: 'available',
+      source: 'curated',
       segments: [
         { id: 'ted-4-s1', start: 0, end: 3.5, text: "I want to show you what's inside the mind of a master procrastinator.", translation: "Quiero mostrarles lo que hay dentro de la mente de un maestro de la procrastinación." },
         { id: 'ted-4-s2', start: 3.5, end: 7.0, text: "Now, I'm not a master procrastinator myself, but I know many of them.", translation: "Ahora, yo no soy un maestro de la procrastinación, pero conozco a muchos." },
@@ -172,6 +180,8 @@ export const MOCK_SPEECHES: Speech[] = [
       tags: ['Confidence', 'Public speaking']
     },
     transcript: {
+      status: 'available',
+      source: 'curated',
       segments: []
     }
   },
@@ -193,6 +203,8 @@ export const MOCK_SPEECHES: Speech[] = [
       tags: ['Tech', 'Deep practice']
     },
     transcript: {
+      status: 'available',
+      source: 'curated',
       segments: []
     }
   },
@@ -214,6 +226,8 @@ export const MOCK_SPEECHES: Speech[] = [
       tags: ['Inspirational', 'Best for pronunciation']
     },
     transcript: {
+      status: 'available',
+      source: 'curated',
       segments: [
         { id: 'int-2-s1', start: 0, end: 4.0, text: "I am honored to be with you today at your commencement.", translation: "Es un honor para mí estar hoy con ustedes en su graduación." },
         { id: 'int-2-s2', start: 4.0, end: 8.0, text: "Truth be told, I never graduated from college.", translation: "A decir verdad, nunca me gradué de la universidad." },
@@ -251,6 +265,8 @@ export const MOCK_SPEECHES: Speech[] = [
       tags: ['Storytelling', 'Southern accent']
     },
     transcript: {
+      status: 'available',
+      source: 'curated',
       segments: []
     }
   },
@@ -272,6 +288,8 @@ export const MOCK_SPEECHES: Speech[] = [
       tags: ['Everyday English', 'Short practice']
     },
     transcript: {
+      status: 'available',
+      source: 'curated',
       segments: []
     }
   },
@@ -293,6 +311,8 @@ export const MOCK_SPEECHES: Speech[] = [
       tags: ['Business', 'British accent']
     },
     transcript: {
+      status: 'available',
+      source: 'curated',
       segments: []
     }
   },
@@ -312,6 +332,11 @@ export const MOCK_SPEECHES: Speech[] = [
     sourceType: 'curated',
     metadata: {
       tags: ['Science', 'Academic vocabulary']
+    },
+    transcript: {
+      status: 'available',
+      source: 'curated',
+      segments: []
     }
   }
 ];
