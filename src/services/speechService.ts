@@ -61,10 +61,13 @@ class SpeechService {
    * Extracts the YouTube video ID from a URL
    */
   extractVideoId(url: string): string | null {
-    if (!url) return null;
-    const regExp = /^.*((youtu.be\/)|(v\/)|(\/u\/\w\/)|(embed\/)|(watch\?))\??v?=?([^#&?]*).*/;
-    const match = url.match(regExp);
-    return (match && match[7].length === 11) ? match[7] : null;
+    try {
+      const regExp = /(?:youtube\.com.*v=|youtu\.be\/)([^&]+)/;
+      const match = url.match(regExp);
+      return match ? match[1] : null;
+    } catch {
+      return null;
+    }
   }
 
   /**
@@ -167,23 +170,45 @@ class SpeechService {
 
   /**
    * Attempts to fetch captions from YouTube
-   * Note: This is a complex task from the frontend. In a real production app,
-   * this would be handled by a backend proxy.
    */
   private async fetchYoutubeCaptions(videoId: string): Promise<TranscriptResult> {
-    // In this environment, we simulate the fetch.
-    // Real logic would involve fetching timedtext from YouTube.
-    
-    // For demonstration, we'll return unavailable for most, 
-    // but we could implement a basic parser if we had the XML.
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    return {
-      status: 'unavailable',
-      segments: [],
-      source: 'unavailable',
-      videoId
-    };
+    try {
+      const response = await fetch(`https://youtubetranscript.com/?server_vid2=${videoId}`);
+      const data = await response.json();
+
+      if (!data || !data.transcript || data.transcript.length === 0) {
+        return {
+          status: 'unavailable',
+          segments: [],
+          source: 'unavailable',
+          videoId
+        };
+      }
+
+      const segments: TranscriptSegment[] = data.transcript.map((item: any, index: number) => ({
+        id: `yt-${index}`,
+        text: item.text,
+        start: item.start,
+        end: item.start + item.duration
+      }));
+
+      return {
+        status: 'available',
+        segments,
+        source: 'youtube',
+        videoId,
+        timestamp: new Date().toISOString()
+      };
+
+    } catch (error) {
+      console.error('YouTube transcript fetch error:', error);
+      return {
+        status: 'error',
+        segments: [],
+        source: 'unavailable',
+        videoId
+      };
+    }
   }
 
   /**

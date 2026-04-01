@@ -108,10 +108,13 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
       setTranscriptError(null);
       try {
         const result = await speechService.getTranscript(speech.id);
+        if (result.status === 'unavailable' || result.segments.length === 0) {
+          setTranscriptError("This video has no captions available.");
+        }
         setTranscriptResult(result);
       } catch (error) {
         console.error('Failed to fetch transcript:', error);
-        setTranscriptError('Transcript unavailable for this video.');
+        setTranscriptError('Failed to load transcript. Try another video.');
       } finally {
         setIsTranscriptLoading(false);
       }
@@ -489,17 +492,8 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
   };
 
   const handleGenerateAITranscript = async () => {
-    setIsGeneratingTranscript(true);
-    setTranscriptError(null);
-    try {
-      const newTranscript = await speechService.generateAITranscript(speech.id);
-      setTranscriptResult(newTranscript);
-    } catch (error) {
-      console.error('Failed to generate AI transcript:', error);
-      setTranscriptError('AI Transcription failed. Please try again later.');
-    } finally {
-      setIsGeneratingTranscript(false);
-    }
+    setTranscriptError("AI transcript coming soon. This feature will generate captions for any video.");
+    setTimeout(() => setTranscriptError(null), 5000);
   };
 
   const handleSubtitleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -683,11 +677,11 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
                   />
                 </div>
                 <div className="text-center space-y-3">
-                  <h3 className="text-2xl font-black text-slate-900 tracking-tight">Analyzing Speech</h3>
+                  <h3 className="text-2xl font-black text-slate-900 tracking-tight">Loading transcript...</h3>
                   <p className="text-slate-500 font-medium animate-pulse">Syncing transcript with video timeline...</p>
                 </div>
               </div>
-            ) : (transcriptResult?.status === 'unavailable' || segments.length === 0) ? (
+            ) : (transcriptResult?.status === 'unavailable' || transcriptResult?.status === 'error' || segments.length === 0) ? (
               <div className="py-12 flex flex-col items-center text-center px-4">
                 <motion.div 
                   initial={{ opacity: 0, y: 20 }}
@@ -703,7 +697,7 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
                   </div>
                   
                   <h3 className={`text-2xl font-black mb-4 tracking-tight ${isFocusMode ? 'text-white' : 'text-slate-900'}`}>
-                    Transcript is not available yet.
+                    No captions available for this video
                   </h3>
                   
                   <p className={`font-medium leading-relaxed mb-10 ${isFocusMode ? 'text-slate-400' : 'text-slate-500'}`}>
@@ -714,19 +708,9 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
                     <Button 
                       className="w-full py-6 rounded-2xl text-lg font-bold shadow-xl shadow-primary/20 flex items-center justify-center gap-3"
                       onClick={handleGenerateAITranscript}
-                      disabled={isGeneratingTranscript}
                     >
-                      {isGeneratingTranscript ? (
-                        <>
-                          <Loader2 className="animate-spin" size={20} />
-                          Generating...
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles size={20} />
-                          Generate with AI
-                        </>
-                      )}
+                      <Sparkles size={20} />
+                      Generate Transcript (AI)
                     </Button>
 
                     <div className="flex gap-3">
