@@ -49,8 +49,8 @@ function AppContent() {
         {(() => {
           switch (activeTab) {
             case 'home': return <HomePage {...props} />;
-            case 'shadowing': return <ShadowingPage onSelectSpeech={setSelectedSpeech} />;
-            case 'videos': return <SpeechesPage onSelectSpeech={setSelectedSpeech} />;
+            case 'shadowing': return <ShadowingPage onSelectSpeech={props.onSelectSpeech} />;
+            case 'videos': return <SpeechesPage onSelectSpeech={props.onSelectSpeech} />;
             case 'vocabulary': return <VocabularyPage onPracticePronunciation={handlePracticePronunciation} />;
             case 'flashcards': return <FlashcardsPage />;
             case 'pronunciation': return (

@@ -118,7 +118,7 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
     };
 
     fetchTranscript();
-  }, [speech.id, speech.transcript]);
+  }, [speech.id, speech.transcript, transcript]);
 
   const segments = useMemo(() => {
     return transcriptResult?.segments || [];
