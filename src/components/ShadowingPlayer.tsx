@@ -72,6 +72,7 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
   const [isTranscriptLoading, setIsTranscriptLoading] = useState(false);
   const [isGeneratingTranscript, setIsGeneratingTranscript] = useState(false);
   const [transcriptError, setTranscriptError] = useState<string | null>(null);
+  const [transcriptSuccess, setTranscriptSuccess] = useState<string | null>(null);
   const [isLoopingSentence, setIsLoopingSentence] = useState(false);
   const [showSizeControl, setShowSizeControl] = useState(false);
   
@@ -126,7 +127,10 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
     
     // If no exact match, find the closest upcoming segment
     if (idx === -1) {
-      return segments.findIndex(s => s.start > currentTime);
+      const nextIdx = segments.findIndex(s => s.start > currentTime);
+      // If we are before the first segment, return 0 (first segment)
+      if (nextIdx === 0 || nextIdx === -1) return 0;
+      return nextIdx;
     }
     
     return idx;
@@ -497,12 +501,15 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
 
     setIsTranscriptLoading(true);
     setTranscriptError(null);
+    setTranscriptSuccess(null);
     try {
       const result = await speechService.parseSubtitleFile(file, videoId || undefined);
       setTranscriptResult(result);
+      setTranscriptSuccess('Subtitles loaded successfully');
+      setTimeout(() => setTranscriptSuccess(null), 3000);
     } catch (error) {
       console.error('Subtitle upload failed:', error);
-      setTranscriptError(error instanceof Error ? error.message : 'Failed to parse subtitle file.');
+      setTranscriptError(error instanceof Error ? error.message : 'Could not parse subtitle file');
     } finally {
       setIsTranscriptLoading(false);
     }
@@ -745,6 +752,13 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
                     <div className="mb-6 p-4 bg-rose-50 border border-rose-100 rounded-xl text-rose-600 text-xs font-bold flex items-center gap-2">
                       <AlertCircle size={14} />
                       {transcriptError}
+                    </div>
+                  )}
+
+                  {transcriptSuccess && (
+                    <div className="mb-6 p-4 bg-emerald-50 border border-emerald-100 rounded-xl text-emerald-600 text-xs font-bold flex items-center gap-2">
+                      <CheckCircle2 size={14} />
+                      {transcriptSuccess}
                     </div>
                   )}
                   

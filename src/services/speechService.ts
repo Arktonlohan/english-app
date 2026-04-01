@@ -100,7 +100,8 @@ class SpeechService {
       },
       transcript: {
         status: 'processing',
-        segments: []
+        segments: [],
+        source: 'youtube'
       }
     };
 
@@ -119,7 +120,7 @@ class SpeechService {
         return {
           status: 'available',
           segments: sortedSegments,
-          source: curatedSpeech.transcript.source || 'manual'
+          source: curatedSpeech.transcript.source || 'curated'
         };
       }
     }
@@ -130,7 +131,7 @@ class SpeechService {
     if (cached) {
       return {
         ...cached.transcript,
-        source: 'cache'
+        source: cached.source || 'cache'
       };
     }
 
@@ -152,13 +153,15 @@ class SpeechService {
       return {
         status: 'unavailable',
         segments: [],
+        source: 'unavailable',
         videoId
       };
     }
 
     return {
       status: 'unavailable',
-      segments: []
+      segments: [],
+      source: 'unavailable'
     };
   }
 
@@ -178,6 +181,7 @@ class SpeechService {
     return {
       status: 'unavailable',
       segments: [],
+      source: 'unavailable',
       videoId
     };
   }
@@ -202,16 +206,16 @@ class SpeechService {
           } else if (file.name.toLowerCase().endsWith('.vtt')) {
             segments = this.parseVttTranscript(text);
           } else {
-            reject(new Error('Unsupported file type. Please upload .srt or .vtt'));
+            reject(new Error('Invalid subtitle file'));
             return;
           }
         } catch (err) {
-          reject(new Error('Could not parse subtitle file. Please check the format.'));
+          reject(new Error('Could not parse subtitle file'));
           return;
         }
         
         if (segments.length === 0) {
-          reject(new Error('No valid segments found in file. Please check the format.'));
+          reject(new Error('Could not parse subtitle file'));
           return;
         }
         
@@ -241,17 +245,11 @@ class SpeechService {
   private parseSrtTranscript(text: string): TranscriptSegment[] {
     const segments: TranscriptSegment[] = [];
     // Normalize line endings and split by double newline to get blocks
-    const blocks = text.replace(/\r\n/g, '\n').split(/\n\n+/);
+    const blocks = text.replace(/\r\n/g, '\n').trim().split(/\n\n+/);
     
     for (const block of blocks) {
       const lines = block.trim().split('\n');
       if (lines.length < 2) continue;
-      
-      // SRT format:
-      // 1
-      // 00:00:01,600 --> 00:00:04,200
-      // Text line 1
-      // Text line 2
       
       let timeLine = '';
       let textStartIndex = -1;
@@ -273,7 +271,7 @@ class SpeechService {
       const start = this.timeToSeconds(timeMatch[1]);
       const end = this.timeToSeconds(timeMatch[2]);
       
-      // Join all subsequent lines as the text content
+      // Join all subsequent lines as the text content, remove HTML tags
       const content = lines.slice(textStartIndex).join(' ').replace(/<[^>]*>/g, '').trim();
       
       if (content) {
@@ -286,7 +284,7 @@ class SpeechService {
       }
     }
     
-    return segments;
+    return segments.sort((a, b) => a.start - b.start);
   }
 
   /**
@@ -330,6 +328,7 @@ class SpeechService {
         continue;
       }
       
+      // Join all subsequent lines as the text content, remove HTML tags
       const content = lines.slice(textStartIndex).join(' ').replace(/<[^>]*>/g, '').trim();
       
       if (content) {
@@ -342,7 +341,7 @@ class SpeechService {
       }
     }
     
-    return segments;
+    return segments.sort((a, b) => a.start - b.start);
   }
 
   /**
@@ -411,10 +410,10 @@ class SpeechService {
         return result;
       }
 
-      return { status: 'unavailable', segments: [], videoId };
+      return { status: 'unavailable', segments: [], source: 'unavailable', videoId };
     } catch (error) {
       console.error('AI Transcription failed', error);
-      return { status: 'error', segments: [], videoId };
+      return { status: 'error', segments: [], source: 'unavailable', videoId };
     }
   }
 

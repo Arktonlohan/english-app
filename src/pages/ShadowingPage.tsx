@@ -20,6 +20,7 @@ export const ShadowingPage: React.FC<ShadowingPageProps> = ({ onSelectSpeech }) 
   const [lastImportedSpeech, setLastImportedSpeech] = useState<Speech | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     const videoId = speechService.extractVideoId(youtubeUrl);
@@ -67,20 +68,25 @@ export const ShadowingPage: React.FC<ShadowingPageProps> = ({ onSelectSpeech }) 
 
     setIsUploading(true);
     setUploadError(null);
+    setUploadSuccess(null);
     try {
       const result = await speechService.parseSubtitleFile(file, lastImportedSpeech.videoId);
       // Update the speech object with the new transcript
-      const updatedSpeech = {
+      const updatedSpeech: Speech = {
         ...lastImportedSpeech,
         transcript: result,
-        readiness: 'ready' as const
+        readiness: 'ready'
       };
       setLastImportedSpeech(updatedSpeech);
-      // Open the player with the updated speech
-      onSelectSpeech(updatedSpeech);
+      setUploadSuccess('Subtitles loaded successfully');
+      // Open the player with the updated speech after a short delay to show success
+      setTimeout(() => {
+        onSelectSpeech(updatedSpeech);
+        setUploadSuccess(null);
+      }, 1500);
     } catch (error) {
       console.error('Subtitle upload failed:', error);
-      setUploadError(error instanceof Error ? error.message : 'Failed to parse subtitle file.');
+      setUploadError(error instanceof Error ? error.message : 'Could not parse subtitle file');
     } finally {
       setIsUploading(false);
     }
@@ -209,6 +215,13 @@ export const ShadowingPage: React.FC<ShadowingPageProps> = ({ onSelectSpeech }) 
               <p className="mt-2 text-[10px] text-rose-500 font-bold px-2 flex items-center gap-1.5">
                 <AlertCircle size={12} />
                 {uploadError}
+              </p>
+            )}
+
+            {uploadSuccess && (
+              <p className="mt-2 text-[10px] text-emerald-500 font-bold px-2 flex items-center gap-1.5">
+                <CheckCircle2 size={12} />
+                {uploadSuccess}
               </p>
             )}
             

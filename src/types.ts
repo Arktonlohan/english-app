@@ -65,7 +65,7 @@ export type Category = 'TED Talks' | 'Interviews' | 'Podcasts';
 export type TranscriptStatus = "available" | "unavailable" | "loading" | "error" | "processing";
 export type ContentReadiness = 'ready' | 'processing' | 'no_transcript' | 'error';
 export type SpeechSourceType = 'curated' | 'youtube' | 'local';
-export type TranscriptSource = 'curated' | 'youtube' | 'ai' | 'manual' | 'cache' | 'uploaded-subtitle';
+export type TranscriptSource = 'curated' | 'uploaded-subtitle' | 'youtube' | 'ai' | 'manual' | 'cache' | 'unavailable';
 
 export type TranscriptSegment = {
   text: string;
@@ -79,7 +79,7 @@ export type TranscriptSegment = {
 export type TranscriptResult = {
   status: TranscriptStatus;
   segments: TranscriptSegment[];
-  source?: TranscriptSource;
+  source: TranscriptSource;
   videoId?: string;
   timestamp?: string;
 };
