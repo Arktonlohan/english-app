@@ -8,7 +8,7 @@ import { progressService } from '../services/progressService';
 import { speechService } from '../services/speechService';
 
 interface ShadowingPageProps {
-  onSelectSpeech: (speech: Speech) => void;
+  onSelectSpeech: (speech: Speech, transcript?: any) => void;
 }
 
 export const ShadowingPage: React.FC<ShadowingPageProps> = ({ onSelectSpeech }) => {
@@ -21,6 +21,11 @@ export const ShadowingPage: React.FC<ShadowingPageProps> = ({ onSelectSpeech }) 
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
+  const [uploadedTranscript, setUploadedTranscript] = useState<any>(null);
+
+  useEffect(() => {
+    console.log("Uploaded transcript:", uploadedTranscript);
+  }, [uploadedTranscript]);
 
   useEffect(() => {
     const videoId = speechService.extractVideoId(youtubeUrl);
@@ -70,20 +75,37 @@ export const ShadowingPage: React.FC<ShadowingPageProps> = ({ onSelectSpeech }) 
     setUploadError(null);
     setUploadSuccess(null);
     try {
-      const result = await speechService.parseSubtitleFile(file, lastImportedSpeech.videoId);
-      // Update the speech object with the new transcript
-      const updatedSpeech: Speech = {
-        ...lastImportedSpeech,
-        transcript: result,
-        readiness: 'ready'
-      };
-      setLastImportedSpeech(updatedSpeech);
-      setUploadSuccess('Subtitles loaded successfully');
-      // Open the player with the updated speech after a short delay to show success
-      setTimeout(() => {
-        onSelectSpeech(updatedSpeech);
-        setUploadSuccess(null);
-      }, 1500);
+      const text = await file.text();
+      let result;
+
+      if (file.name.toLowerCase().endsWith(".srt")) {
+        result = speechService.parseSrtTranscript(text, lastImportedSpeech.videoId);
+      } else if (file.name.toLowerCase().endsWith(".vtt")) {
+        result = speechService.parseVttTranscript(text, lastImportedSpeech.videoId);
+      } else {
+        throw new Error("Invalid subtitle file");
+      }
+
+      if (result && result.segments.length > 0) {
+        setUploadedTranscript(result);
+        
+        // Update the speech object with the new transcript
+        const updatedSpeech: Speech = {
+          ...lastImportedSpeech,
+          transcript: result,
+          readiness: 'ready'
+        };
+        setLastImportedSpeech(updatedSpeech);
+        setUploadSuccess('Subtitles loaded successfully');
+        
+        // Open the player with the updated speech after a short delay to show success
+        setTimeout(() => {
+          onSelectSpeech(updatedSpeech, result);
+          setUploadSuccess(null);
+        }, 1500);
+      } else {
+        throw new Error("Could not parse subtitle file");
+      }
     } catch (error) {
       console.error('Subtitle upload failed:', error);
       setUploadError(error instanceof Error ? error.message : 'Could not parse subtitle file');

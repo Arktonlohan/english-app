@@ -39,9 +39,10 @@ interface ShadowingPlayerProps {
   speech: Speech;
   onBack: () => void;
   onPracticePronunciation?: (word: any) => void;
+  transcript?: TranscriptResult;
 }
 
-export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack, onPracticePronunciation }) => {
+export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack, onPracticePronunciation, transcript }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [playbackRate, setPlaybackRate] = useState(1);
@@ -68,8 +69,8 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
   const [subtitleSize, setSubtitleSize] = useState<'sm' | 'md' | 'lg'>(user?.preferences?.subtitleSize || 'md');
   
   // Transcript State
-  const [transcriptResult, setTranscriptResult] = useState<TranscriptResult | null>(null);
-  const [isTranscriptLoading, setIsTranscriptLoading] = useState(false);
+  const [transcriptResult, setTranscriptResult] = useState<TranscriptResult | null>(transcript || null);
+  const [isTranscriptLoading, setIsTranscriptLoading] = useState(!transcript);
   const [isGeneratingTranscript, setIsGeneratingTranscript] = useState(false);
   const [transcriptError, setTranscriptError] = useState<string | null>(null);
   const [transcriptSuccess, setTranscriptSuccess] = useState<string | null>(null);
@@ -89,6 +90,12 @@ export const ShadowingPlayer: React.FC<ShadowingPlayerProps> = ({ speech, onBack
 
   // Fetch transcript if needed
   useEffect(() => {
+    if (transcript) {
+      setTranscriptResult(transcript);
+      setIsTranscriptLoading(false);
+      return;
+    }
+
     const fetchTranscript = async () => {
       // If speech already has a valid transcript (e.g. from upload), use it
       if (speech.transcript && speech.transcript.segments && speech.transcript.segments.length > 0) {

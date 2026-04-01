@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { TabType, Speech } from './types';
+import { TabType, Speech, TranscriptResult } from './types';
 import { Navigation } from './components/Navigation';
 import { HomePage } from './pages/HomePage';
 import { ShadowingPage } from './pages/ShadowingPage';
@@ -18,6 +18,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 function AppContent() {
   const [activeTab, setActiveTab] = useState<TabType>('home');
   const [selectedSpeech, setSelectedSpeech] = useState<Speech | null>(null);
+  const [uploadedTranscript, setUploadedTranscript] = useState<TranscriptResult | null>(null);
   const [selectedPracticeItem, setSelectedPracticeItem] = useState<any>(null);
   const { status, isReady } = useAuth();
 
@@ -29,7 +30,11 @@ function AppContent() {
   const renderContent = () => {
     const props = {
       onTabChange: setActiveTab,
-      onSelectSpeech: setSelectedSpeech,
+      onSelectSpeech: (speech: Speech, transcript?: TranscriptResult) => {
+        setSelectedSpeech(speech);
+        if (transcript) setUploadedTranscript(transcript);
+        else setUploadedTranscript(null);
+      },
       onPracticePronunciation: handlePracticePronunciation,
     };
 
@@ -120,7 +125,11 @@ function AppContent() {
         {selectedSpeech && (
           <ShadowingPlayer 
             speech={selectedSpeech} 
-            onBack={() => setSelectedSpeech(null)} 
+            transcript={uploadedTranscript || undefined}
+            onBack={() => {
+              setSelectedSpeech(null);
+              setUploadedTranscript(null);
+            }} 
             onPracticePronunciation={handlePracticePronunciation}
           />
         )}

@@ -190,59 +190,33 @@ class SpeechService {
    * Parses an uploaded subtitle file (.srt or .vtt)
    */
   async parseSubtitleFile(file: File, videoId?: string): Promise<TranscriptResult> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const text = e.target?.result as string;
-        if (!text) {
-          reject(new Error('Empty file'));
-          return;
-        }
-        
-        let segments: TranscriptSegment[] = [];
-        try {
-          if (file.name.toLowerCase().endsWith('.srt')) {
-            segments = this.parseSrtTranscript(text);
-          } else if (file.name.toLowerCase().endsWith('.vtt')) {
-            segments = this.parseVttTranscript(text);
-          } else {
-            reject(new Error('Invalid subtitle file'));
-            return;
-          }
-        } catch (err) {
-          reject(new Error('Could not parse subtitle file'));
-          return;
-        }
-        
-        if (segments.length === 0) {
-          reject(new Error('Could not parse subtitle file'));
-          return;
-        }
-        
-        const result: TranscriptResult = {
-          status: 'available',
-          source: 'uploaded-subtitle',
-          segments,
-          videoId,
-          timestamp: new Date().toISOString()
-        };
-
-        // Cache it if we have a videoId
-        if (videoId) {
-          transcriptCache.set(videoId, result, 'uploaded-subtitle');
-        }
-        
-        resolve(result);
-      };
-      reader.onerror = () => reject(new Error('Failed to read file'));
-      reader.readAsText(file);
-    });
+    try {
+      const text = await file.text();
+      if (!text) throw new Error('Empty file');
+      
+      let result: TranscriptResult;
+      if (file.name.toLowerCase().endsWith('.srt')) {
+        result = this.parseSrtTranscript(text, videoId);
+      } else if (file.name.toLowerCase().endsWith('.vtt')) {
+        result = this.parseVttTranscript(text, videoId);
+      } else {
+        throw new Error('Invalid subtitle file');
+      }
+      
+      if (result.segments.length === 0) {
+        throw new Error('Could not parse subtitle file');
+      }
+      
+      return result;
+    } catch (err) {
+      throw err instanceof Error ? err : new Error('Failed to read file');
+    }
   }
 
   /**
    * Parses SRT content into segments
    */
-  private parseSrtTranscript(text: string): TranscriptSegment[] {
+  public parseSrtTranscript(text: string, videoId?: string): TranscriptResult {
     const segments: TranscriptSegment[] = [];
     // Normalize line endings and split by double newline to get blocks
     const blocks = text.replace(/\r\n/g, '\n').trim().split(/\n\n+/);
@@ -284,13 +258,25 @@ class SpeechService {
       }
     }
     
-    return segments.sort((a, b) => a.start - b.start);
+    const result: TranscriptResult = {
+      status: 'available',
+      source: 'uploaded-subtitle',
+      segments: segments.sort((a, b) => a.start - b.start),
+      videoId,
+      timestamp: new Date().toISOString()
+    };
+
+    if (videoId) {
+      transcriptCache.set(videoId, result, 'uploaded-subtitle');
+    }
+
+    return result;
   }
 
   /**
    * Parses VTT content into segments
    */
-  private parseVttTranscript(text: string): TranscriptSegment[] {
+  public parseVttTranscript(text: string, videoId?: string): TranscriptResult {
     const segments: TranscriptSegment[] = [];
     // Normalize line endings and remove WEBVTT header
     const cleanText = text.replace(/\r\n/g, '\n').replace(/^WEBVTT[\s\S]*?\n\n/, '').trim();
@@ -341,7 +327,19 @@ class SpeechService {
       }
     }
     
-    return segments.sort((a, b) => a.start - b.start);
+    const result: TranscriptResult = {
+      status: 'available',
+      source: 'uploaded-subtitle',
+      segments: segments.sort((a, b) => a.start - b.start),
+      videoId,
+      timestamp: new Date().toISOString()
+    };
+
+    if (videoId) {
+      transcriptCache.set(videoId, result, 'uploaded-subtitle');
+    }
+
+    return result;
   }
 
   /**
